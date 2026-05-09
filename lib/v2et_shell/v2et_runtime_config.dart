@@ -10,6 +10,10 @@ class V2etRuntimeConfig {
     this.supportScriptUrl,
     this.supportEmbedHtml,
     this.crispWebsiteId,
+    this.officialSiteUrl,
+    this.groupUrl,
+    this.inviteManageUrl,
+    this.giftCardHelpUrl,
     this.defaultEmail = '',
     this.defaultPassword = '',
   });
@@ -20,6 +24,10 @@ class V2etRuntimeConfig {
   final String? supportScriptUrl;
   final String? supportEmbedHtml;
   final String? crispWebsiteId;
+  final String? officialSiteUrl;
+  final String? groupUrl;
+  final String? inviteManageUrl;
+  final String? giftCardHelpUrl;
   final String defaultEmail;
   final String defaultPassword;
 
@@ -83,6 +91,10 @@ class V2etRuntimeConfig {
       supportScriptUrl: read(['support.script_url']),
       supportEmbedHtml: read(['support.embed_html']),
       crispWebsiteId: read(['crisp.website_id', 'support.crisp_id']),
+      officialSiteUrl: read(['links.official_site', 'links.official_website']),
+      groupUrl: read(['links.join_group', 'links.group']),
+      inviteManageUrl: read(['links.invite_manage', 'links.invite']),
+      giftCardHelpUrl: read(['links.gift_card_help', 'links.gift_card']),
       defaultEmail: read(['default_email']) ?? '',
       defaultPassword: read(['default_password']) ?? '',
     );

@@ -330,16 +330,98 @@ class _V2etAppFrameState extends ConsumerState<_V2etAppFrame> {
     return '${size.toStringAsFixed(idx == 0 ? 0 : 2)} ${units[idx]}';
   }
 
-  Widget _buildMainPanel() {
-    if (_tab == _V2etTab.store) {
-      return const _SimplePanel(title: '商店', desc: 'Stage-3 下一步：迁移套餐与支付页面');
-    }
-    if (_tab == _V2etTab.me) {
-      return _SimplePanel(
-        title: '我的',
-        desc: '账号：${widget.session.email}\n状态：$_status',
-      );
-    }
+  Future<void> _openUrl(String? raw) async {
+    final text = (raw ?? '').trim();
+    if (text.isEmpty) return;
+    final uri = Uri.tryParse(text);
+    if (uri == null) return;
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  Widget _buildStorePanel() {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('商店', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 10),
+              const Text('已迁移到 FlClash 底层（Stage-3）。下一步接入套餐与支付完整链路。'),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: () => _openUrl(widget.runtime.officialSiteUrl),
+                    icon: const Icon(Icons.public_rounded),
+                    label: const Text('官网'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: () => _openUrl(widget.runtime.groupUrl),
+                    icon: const Icon(Icons.groups_rounded),
+                    label: const Text('群组'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMePanel() {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('我的', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 12),
+              Text('账号：${widget.session.email}'),
+              const SizedBox(height: 6),
+              Text('状态：$_status'),
+              const SizedBox(height: 6),
+              Text('套餐：${_subscription?.planName ?? '-'}'),
+              const SizedBox(height: 6),
+              Text('流量：${_formatBytes(_subscription?.usedBytes)} / ${_formatBytes(_subscription?.transferEnableBytes)}'),
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: () => _openUrl(widget.runtime.inviteManageUrl),
+                    icon: const Icon(Icons.person_add_alt_1_rounded),
+                    label: const Text('邀请管理'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: () => _openUrl(widget.runtime.giftCardHelpUrl),
+                    icon: const Icon(Icons.card_giftcard_rounded),
+                    label: const Text('礼品卡帮助'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: _subLoading ? null : _loadSubscription,
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: const Text('刷新订阅'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDashboardPanel() {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -397,6 +479,14 @@ class _V2etAppFrameState extends ConsumerState<_V2etAppFrame> {
         ),
       ],
     );
+  }
+
+  Widget _buildMainPanel() {
+    return switch (_tab) {
+      _V2etTab.dashboard => _buildDashboardPanel(),
+      _V2etTab.store => _buildStorePanel(),
+      _V2etTab.me => _buildMePanel(),
+    };
   }
 
   @override
@@ -471,33 +561,6 @@ class _SideItem extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SimplePanel extends StatelessWidget {
-  const _SimplePanel({required this.title, required this.desc});
-
-  final String title;
-  final String desc;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
-              const SizedBox(height: 10),
-              Text(desc),
-            ],
-          ),
         ),
       ),
     );
