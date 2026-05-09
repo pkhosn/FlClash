@@ -7,8 +7,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 const _kPrimary = Color(0xFF0665D0);
-const _kAppBg = Color(0xFFF1F4F8);
+const _kAppBg = Colors.white;
 const _kSidebarBg = Colors.white;
+const _kFallbackApiUrl = 'http://v2et-board.xizdj.com';
 
 class V2etShellPage extends ConsumerStatefulWidget {
   const V2etShellPage({super.key});
@@ -87,16 +88,15 @@ class _AuthShellState extends ConsumerState<_AuthShell> {
   _AuthTab _tab = _AuthTab.login;
   final _email = TextEditingController();
   final _password = TextEditingController();
-  final _baseUrl = TextEditingController();
+  Uri? _runtimeBaseUri;
   bool _loading = false;
   String? _error;
 
   @override
   void initState() {
     super.initState();
-    _baseUrl.text = widget.runtime.apiUrl?.trim().isNotEmpty == true
-        ? widget.runtime.apiUrl!
-        : 'https://v2et-board.xizdj.com';
+    _runtimeBaseUri =
+        widget.runtime.resolveBaseUrl() ?? Uri.tryParse(_kFallbackApiUrl);
     _email.text = widget.runtime.defaultEmail;
     _password.text = widget.runtime.defaultPassword;
     _error = widget.error;
@@ -106,16 +106,18 @@ class _AuthShellState extends ConsumerState<_AuthShell> {
   void dispose() {
     _email.dispose();
     _password.dispose();
-    _baseUrl.dispose();
     super.dispose();
   }
 
   Future<void> _submitLogin() async {
     if (_loading) return;
-    if (_email.text.trim().isEmpty ||
-        _password.text.isEmpty ||
-        _baseUrl.text.trim().isEmpty) {
+    if (_email.text.trim().isEmpty || _password.text.isEmpty) {
       setState(() => _error = '请完整填写登录信息');
+      return;
+    }
+    final baseUri = _runtimeBaseUri;
+    if (baseUri == null || !baseUri.hasScheme) {
+      setState(() => _error = '配置错误：未找到可用 API 地址');
       return;
     }
     setState(() {
@@ -126,7 +128,7 @@ class _AuthShellState extends ConsumerState<_AuthShell> {
       final session = await ref
           .read(v2etBridgeProvider)
           .login(
-            baseUrl: Uri.parse(_baseUrl.text.trim()),
+            baseUrl: baseUri,
             email: _email.text.trim(),
             password: _password.text,
           );
@@ -144,39 +146,18 @@ class _AuthShellState extends ConsumerState<_AuthShell> {
   Widget build(BuildContext context) {
     final support = widget.runtime.buildSupportUri();
     return Scaffold(
-      backgroundColor: _kPrimary,
+      backgroundColor: Colors.white,
       body: Stack(
         children: [
-          Positioned.fill(
-            child: Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Color(0xFF3A97CC), Color(0xFF2759B7)],
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            left: -120,
-            bottom: -200,
-            child: Container(
-              width: 520,
-              height: 520,
-              decoration: const BoxDecoration(
-                color: Colors.black,
-                borderRadius: BorderRadius.only(topRight: Radius.circular(500)),
-              ),
-            ),
-          ),
+          Positioned.fill(child: Container(color: Colors.white)),
           Center(
             child: Container(
               width: 460,
               padding: const EdgeInsets.all(28),
               decoration: BoxDecoration(
-                color: const Color(0xFFE9EFF6).withValues(alpha: 0.94),
+                color: const Color(0xFFF7FAFF),
                 borderRadius: BorderRadius.circular(22),
+                border: Border.all(color: const Color(0xFFE0E8F2)),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -203,8 +184,6 @@ class _AuthShellState extends ConsumerState<_AuthShell> {
                   ),
                   const SizedBox(height: 16),
                   if (_tab == _AuthTab.login) ...[
-                    _input(_baseUrl, 'API 地址', Icons.link_rounded),
-                    const SizedBox(height: 10),
                     _input(_email, '邮箱', Icons.mail_outline_rounded),
                     const SizedBox(height: 10),
                     _input(
@@ -328,7 +307,10 @@ class _AuthShellState extends ConsumerState<_AuthShell> {
       if (right != null)
         InkWell(
           onTap: rightTap,
-          child: Text(right, style: const TextStyle(fontSize: 13)),
+          child: Text(
+            right,
+            style: const TextStyle(fontSize: 13, color: Color(0xFF2D3540)),
+          ),
         ),
     ],
   );
@@ -345,7 +327,7 @@ class _AuthShellState extends ConsumerState<_AuthShell> {
       hintText: hint,
       prefixIcon: Icon(icon, size: 18),
       filled: true,
-      fillColor: const Color(0xFFE3E9F1),
+      fillColor: Colors.white,
       contentPadding: const EdgeInsets.symmetric(vertical: 0),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
@@ -393,7 +375,28 @@ class _MainShellState extends ConsumerState<_MainShell> {
   bool _busy = false;
   bool _connected = false;
   bool _showSupport = false;
+  bool _showNodePicker = false;
+  int _activeGroupIndex = 0;
   final GlobalKey _supportKey = GlobalKey();
+  final List<_NodeGroup> _nodeGroups = const [
+    _NodeGroup('主策略', '自动选择', [
+      _NodeItem('节点tu', 990),
+      _NodeItem('新加坡A', -1),
+      _NodeItem('新加坡B', 1771),
+      _NodeItem('德国', 667),
+      _NodeItem('老古董', 237),
+    ]),
+    _NodeGroup('自动选择', '应急2号线', [
+      _NodeItem('特殊v4-v6网络A', 501),
+      _NodeItem('特殊v4-v6网络B', 493),
+      _NodeItem('特殊v4-v6网络C', -1),
+      _NodeItem('土耳其', -1),
+    ]),
+    _NodeGroup('故障转移', '平时别用', [
+      _NodeItem('土耳其-国内使用', -1),
+      _NodeItem('香港3-转发', 148),
+    ]),
+  ];
 
   @override
   void initState() {
@@ -546,6 +549,7 @@ class _MainShellState extends ConsumerState<_MainShell> {
             ),
           ),
           if (_showSupport) _supportPopup(),
+          if (_showNodePicker) _nodePickerPopup(),
         ],
       ),
     );
@@ -578,7 +582,9 @@ class _MainShellState extends ConsumerState<_MainShell> {
                 label,
                 style: TextStyle(
                   fontSize: 13,
-                  color: selected ? Colors.black : const Color(0xFF666666),
+                  color: selected
+                      ? const Color(0xFF111827)
+                      : const Color(0xFF4B5563),
                   fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                 ),
               ),
@@ -740,7 +746,241 @@ class _MainShellState extends ConsumerState<_MainShell> {
             ],
           ),
         ),
+        const SizedBox(height: 14),
+        InkWell(
+          onTap: () => setState(() => _showNodePicker = true),
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFDDE2EA)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE8F1FD),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.public_rounded, color: _kPrimary),
+                ),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Text(
+                    '自动选择',
+                    style: TextStyle(
+                      color: Color(0xFF1F2937),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                const Text(
+                  '103ms',
+                  style: TextStyle(
+                    color: Colors.green,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                const Icon(Icons.expand_less_rounded, color: Color(0xFF6B7280)),
+              ],
+            ),
+          ),
+        ),
       ],
+    );
+  }
+
+  Widget _nodePickerPopup() {
+    final group = _nodeGroups[_activeGroupIndex];
+    return Positioned.fill(
+      child: GestureDetector(
+        onTap: () => setState(() => _showNodePicker = false),
+        child: Container(
+          color: const Color(0x66000000),
+          alignment: Alignment.center,
+          child: GestureDetector(
+            onTap: () {},
+            child: Container(
+              width: 740,
+              height: 540,
+              decoration: BoxDecoration(
+                color: const Color(0xFFFBFEFF),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: const Color(0xFF9EDBD8)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 270,
+                    padding: const EdgeInsets.all(12),
+                    decoration: const BoxDecoration(
+                      border: Border(
+                        right: BorderSide(color: Color(0xFFE5EAF0)),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Text(
+                              '分流组',
+                              style: TextStyle(
+                                fontSize: 30 / 1.6,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFF1F2937),
+                              ),
+                            ),
+                            const Spacer(),
+                            IconButton(
+                              onPressed: () =>
+                                  setState(() => _showNodePicker = false),
+                              icon: const Icon(Icons.close_rounded),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        ...List.generate(_nodeGroups.length, (i) {
+                          final g = _nodeGroups[i];
+                          final sel = i == _activeGroupIndex;
+                          return InkWell(
+                            onTap: () => setState(() => _activeGroupIndex = i),
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: sel
+                                    ? const Color(0xFFD9F1EF)
+                                    : Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: sel
+                                      ? const Color(0xFF85D3CF)
+                                      : const Color(0xFFE5E7EB),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.route_rounded,
+                                    size: 18,
+                                    color: Color(0xFF0E8E87),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          g.name,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w700,
+                                            color: Color(0xFF1F2937),
+                                          ),
+                                        ),
+                                        Text(
+                                          g.desc,
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: Color(0xFF6B7280),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const Icon(Icons.chevron_right_rounded),
+                                ],
+                              ),
+                            ),
+                          );
+                        }),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Text(
+                                '狮子云shizi.pro',
+                                style: TextStyle(
+                                  fontSize: 32 / 1.6,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFF1F2937),
+                                ),
+                              ),
+                              const Spacer(),
+                              FilledButton.tonal(
+                                onPressed: () {},
+                                child: const Text('全部测速'),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Expanded(
+                            child: ListView.separated(
+                              itemBuilder: (_, i) {
+                                final n = group.nodes[i];
+                                final timeout = n.delay < 0;
+                                return Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.public_rounded,
+                                      color: Color(0xFF35A6E0),
+                                      size: 20,
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        n.name,
+                                        style: const TextStyle(
+                                          color: Color(0xFF111827),
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                    Text(
+                                      timeout ? '超时' : '${n.delay}ms',
+                                      style: TextStyle(
+                                        color: timeout
+                                            ? Colors.red
+                                            : (n.delay > 500
+                                                  ? Colors.red
+                                                  : (n.delay > 250
+                                                        ? Colors.orange
+                                                        : Colors.green)),
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              },
+                              separatorBuilder: (_, __) =>
+                                  const Divider(height: 18),
+                              itemCount: group.nodes.length,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -846,7 +1086,7 @@ class _MainShellState extends ConsumerState<_MainShell> {
                       padding: EdgeInsets.all(16),
                       child: Text(
                         '支持Win、Mac、iOS、安卓\n高速访问，全球节点分布',
-                        style: TextStyle(color: Color(0xFF666666), height: 1.7),
+                        style: TextStyle(color: Color(0xFF374151), height: 1.7),
                       ),
                     ),
                   ],
@@ -1341,6 +1581,19 @@ class _MiniBox extends StatelessWidget {
       ),
     );
   }
+}
+
+class _NodeGroup {
+  const _NodeGroup(this.name, this.desc, this.nodes);
+  final String name;
+  final String desc;
+  final List<_NodeItem> nodes;
+}
+
+class _NodeItem {
+  const _NodeItem(this.name, this.delay);
+  final String name;
+  final int delay;
 }
 
 Widget _supportFab(VoidCallback onTap) => InkWell(
