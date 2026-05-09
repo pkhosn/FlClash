@@ -363,12 +363,125 @@ class _V2etAppFrameState extends ConsumerState<_V2etAppFrame> {
         period: period,
       );
       await launchUrl(payUri, mode: LaunchMode.externalApplication);
+      if (!mounted) return;
+      await _loadSubscription();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('打开支付失败: $e')),
       );
     }
+  }
+
+  Future<void> _showOrdersDialog() async {
+    List<V2etOrder> orders = const [];
+    String? err;
+    try {
+      orders = await ref.read(v2etBridgeProvider).fetchOrders();
+    } catch (e) {
+      err = e.toString();
+    }
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('订单记录'),
+        content: SizedBox(
+          width: 420,
+          child: err != null
+              ? Text(err)
+              : orders.isEmpty
+              ? const Text('暂无订单')
+              : ListView.separated(
+                  shrinkWrap: true,
+                  itemBuilder: (c, i) {
+                    final o = orders[i];
+                    return ListTile(
+                      dense: true,
+                      title: Text(o.planName ?? o.tradeNo),
+                      subtitle: Text('状态:${o.status} 金额:¥${o.totalAmount.toStringAsFixed(2)}'),
+                    );
+                  },
+                  separatorBuilder: (context, index) => const Divider(height: 0),
+                  itemCount: orders.length,
+                ),
+        ),
+        actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('关闭'))],
+      ),
+    );
+  }
+
+  Future<void> _showChangePasswordDialog() async {
+    final oldCtrl = TextEditingController();
+    final newCtrl = TextEditingController();
+    String? err;
+    bool submitting = false;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModal) => AlertDialog(
+          title: const Text('修改密码'),
+          content: SizedBox(
+            width: 360,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: oldCtrl,
+                  decoration: const InputDecoration(labelText: '旧密码'),
+                  obscureText: true,
+                ),
+                TextField(
+                  controller: newCtrl,
+                  decoration: const InputDecoration(labelText: '新密码'),
+                  obscureText: true,
+                ),
+                if (err != null) ...[
+                  const SizedBox(height: 8),
+                  Text(err!, style: const TextStyle(color: Colors.red, fontSize: 12)),
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: submitting ? null : () => Navigator.of(ctx).pop(), child: const Text('取消')),
+            FilledButton(
+              onPressed: submitting
+                  ? null
+                  : () async {
+                      if (oldCtrl.text.isEmpty || newCtrl.text.isEmpty) {
+                        setModal(() => err = '请完整输入旧密码和新密码');
+                        return;
+                      }
+                      setModal(() {
+                        submitting = true;
+                        err = null;
+                      });
+                      try {
+                        await ref.read(v2etBridgeProvider).changePassword(
+                              oldPassword: oldCtrl.text,
+                              newPassword: newCtrl.text,
+                            );
+                        if (!ctx.mounted) return;
+                        Navigator.of(ctx).pop();
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('密码修改成功')));
+                      } catch (e) {
+                        setModal(() => err = e.toString());
+                      } finally {
+                        if (ctx.mounted) {
+                          setModal(() => submitting = false);
+                        }
+                      }
+                    },
+              child: const Text('提交'),
+            ),
+          ],
+        ),
+      ),
+    );
+    oldCtrl.dispose();
+    newCtrl.dispose();
   }
 
   Widget _buildStorePanel() {
@@ -481,6 +594,11 @@ class _V2etAppFrameState extends ConsumerState<_V2etAppFrame> {
                 runSpacing: 8,
                 children: [
                   OutlinedButton.icon(
+                    onPressed: _showOrdersDialog,
+                    icon: const Icon(Icons.receipt_long_rounded),
+                    label: const Text('订单记录'),
+                  ),
+                  OutlinedButton.icon(
                     onPressed: () => _openUrl(widget.runtime.inviteManageUrl),
                     icon: const Icon(Icons.person_add_alt_1_rounded),
                     label: const Text('邀请管理'),
@@ -494,6 +612,11 @@ class _V2etAppFrameState extends ConsumerState<_V2etAppFrame> {
                     onPressed: _subLoading ? null : _loadSubscription,
                     icon: const Icon(Icons.refresh_rounded),
                     label: const Text('刷新订阅'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: _showChangePasswordDialog,
+                    icon: const Icon(Icons.lock_reset_rounded),
+                    label: const Text('修改密码'),
                   ),
                 ],
               ),

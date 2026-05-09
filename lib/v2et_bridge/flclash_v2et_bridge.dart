@@ -41,6 +41,9 @@ class FlClashV2etBridge implements V2etBridge {
   Future<List<V2etStoreOffer>> fetchStoreOffers() => _fetchStoreOffers();
 
   @override
+  Future<List<V2etOrder>> fetchOrders() => _fetchOrders();
+
+  @override
   Future<Uri> startCheckout({
     required int planId,
     required String period,
@@ -65,6 +68,23 @@ class FlClashV2etBridge implements V2etBridge {
   @override
   Future<V2etSession> login({required Uri baseUrl, required String email, required String password}) {
     return _login(baseUrl: baseUrl, email: email, password: password);
+  }
+
+  @override
+  Future<void> changePassword({
+    required String oldPassword,
+    required String newPassword,
+  }) async {
+    final session = await _sessionStore.read();
+    if (session == null || !session.hasToken) {
+      throw StateError('session not found');
+    }
+    await _panelApi.changePassword(
+      baseUrl: session.baseUrl,
+      accessToken: session.accessToken,
+      oldPassword: oldPassword,
+      newPassword: newPassword,
+    );
   }
 
   @override
@@ -243,5 +263,30 @@ class FlClashV2etBridge implements V2etBridge {
       throw StateError('invalid pay url');
     }
     return uri;
+  }
+
+  Future<List<V2etOrder>> _fetchOrders() async {
+    final session = await _sessionStore.read();
+    if (session == null || !session.hasToken) {
+      throw StateError('session not found');
+    }
+    final orders = await _panelApi.fetchPendingOrders(
+      baseUrl: session.baseUrl,
+      accessToken: session.accessToken,
+    );
+    return orders.map((item) {
+      final tradeNo = '${item['trade_no'] ?? ''}'.trim();
+      final status = _toInt(item['status']);
+      final amountRaw = item['total_amount'] ?? item['totalAmount'] ?? 0;
+      final totalAmount = amountRaw is num ? amountRaw.toDouble() : double.tryParse('$amountRaw') ?? 0;
+      final ts = _toInt(item['created_at']);
+      return V2etOrder(
+        tradeNo: tradeNo,
+        status: status,
+        totalAmount: totalAmount,
+        planName: item['plan_name']?.toString() ?? item['plan']?.toString(),
+        createdAt: ts > 0 ? DateTime.fromMillisecondsSinceEpoch(ts * 1000) : null,
+      );
+    }).toList();
   }
 }

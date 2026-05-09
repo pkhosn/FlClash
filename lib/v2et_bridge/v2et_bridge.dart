@@ -47,6 +47,23 @@ class V2etStoreOffer {
   final Map<String, double> prices;
 }
 
+@immutable
+class V2etOrder {
+  const V2etOrder({
+    required this.tradeNo,
+    required this.status,
+    required this.totalAmount,
+    this.planName,
+    this.createdAt,
+  });
+
+  final String tradeNo;
+  final int status;
+  final double totalAmount;
+  final String? planName;
+  final DateTime? createdAt;
+}
+
 abstract class V2etAuthGateway {
   Future<V2etSession> login({
     required Uri baseUrl,
@@ -56,6 +73,10 @@ abstract class V2etAuthGateway {
 
   Future<void> logout();
   Future<V2etSession?> restoreSession();
+  Future<void> changePassword({
+    required String oldPassword,
+    required String newPassword,
+  });
 }
 
 abstract class V2etSubscriptionGateway {
@@ -64,6 +85,7 @@ abstract class V2etSubscriptionGateway {
 
 abstract class V2etStoreGateway {
   Future<List<V2etStoreOffer>> fetchStoreOffers();
+  Future<List<V2etOrder>> fetchOrders();
   Future<Uri> startCheckout({
     required int planId,
     required String period,

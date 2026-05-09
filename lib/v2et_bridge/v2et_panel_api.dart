@@ -177,6 +177,29 @@ class V2etPanelApi {
     throw StateError('checkout failed: pay url missing');
   }
 
+  Future<void> changePassword({
+    required Uri baseUrl,
+    required String accessToken,
+    required String oldPassword,
+    required String newPassword,
+  }) async {
+    final uri = _join(baseUrl, '/api/v1/user/changePassword');
+    await _dio.postUri<Map<String, dynamic>>(
+      uri,
+      data: {
+        'old_password': oldPassword,
+        'new_password': newPassword,
+      },
+      options: Options(
+        headers: {
+          'Accept': 'application/json,text/plain,*/*',
+          'Authorization': accessToken,
+        },
+        responseType: ResponseType.json,
+      ),
+    );
+  }
+
   String? _readToken(Map<String, dynamic> body) {
     final direct = body['data'];
     if (direct is Map<String, dynamic>) {
