@@ -34,6 +34,19 @@ class V2etSubscription {
   final int? usedBytes;
 }
 
+@immutable
+class V2etStoreOffer {
+  const V2etStoreOffer({
+    required this.id,
+    required this.name,
+    required this.prices,
+  });
+
+  final int id;
+  final String name;
+  final Map<String, double> prices;
+}
+
 abstract class V2etAuthGateway {
   Future<V2etSession> login({
     required Uri baseUrl,
@@ -49,6 +62,15 @@ abstract class V2etSubscriptionGateway {
   Future<V2etSubscription> fetchSubscription();
 }
 
+abstract class V2etStoreGateway {
+  Future<List<V2etStoreOffer>> fetchStoreOffers();
+  Future<Uri> startCheckout({
+    required int planId,
+    required String period,
+    String? couponCode,
+  });
+}
+
 abstract class V2etConnectivityGateway {
   Future<void> connect();
   Future<void> disconnect();
@@ -57,4 +79,4 @@ abstract class V2etConnectivityGateway {
 }
 
 abstract class V2etBridge
-    implements V2etAuthGateway, V2etSubscriptionGateway, V2etConnectivityGateway {}
+    implements V2etAuthGateway, V2etSubscriptionGateway, V2etStoreGateway, V2etConnectivityGateway {}

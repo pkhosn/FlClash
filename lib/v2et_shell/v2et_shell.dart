@@ -251,12 +251,15 @@ class _V2etAppFrameState extends ConsumerState<_V2etAppFrame> {
   V2etProxyMode _mode = V2etProxyMode.smart;
   String _status = 'Disconnected';
   V2etSubscription? _subscription;
+  List<V2etStoreOffer> _offers = const [];
+  bool _offersLoading = false;
 
   @override
   void initState() {
     super.initState();
     _syncMode();
     _loadSubscription();
+    _loadOffers();
   }
 
   Future<void> _syncMode() async {
@@ -276,6 +279,20 @@ class _V2etAppFrameState extends ConsumerState<_V2etAppFrame> {
       setState(() => _subscription = null);
     } finally {
       if (mounted) setState(() => _subLoading = false);
+    }
+  }
+
+  Future<void> _loadOffers() async {
+    setState(() => _offersLoading = true);
+    try {
+      final offers = await ref.read(v2etBridgeProvider).fetchStoreOffers();
+      if (!mounted) return;
+      setState(() => _offers = offers);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _offers = const []);
+    } finally {
+      if (mounted) setState(() => _offersLoading = false);
     }
   }
 
@@ -338,6 +355,22 @@ class _V2etAppFrameState extends ConsumerState<_V2etAppFrame> {
     await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
+  Future<void> _buy(V2etStoreOffer offer) async {
+    final period = offer.prices.keys.isNotEmpty ? offer.prices.keys.first : 'month';
+    try {
+      final payUri = await ref.read(v2etBridgeProvider).startCheckout(
+        planId: offer.id,
+        period: period,
+      );
+      await launchUrl(payUri, mode: LaunchMode.externalApplication);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('打开支付失败: $e')),
+      );
+    }
+  }
+
   Widget _buildStorePanel() {
     return Padding(
       padding: const EdgeInsets.all(16),
@@ -347,9 +380,59 @@ class _V2etAppFrameState extends ConsumerState<_V2etAppFrame> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('商店', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
+              Row(
+                children: [
+                  const Text('商店', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
+                  const Spacer(),
+                  TextButton.icon(
+                    onPressed: _offersLoading ? null : _loadOffers,
+                    icon: const Icon(Icons.refresh_rounded, size: 16),
+                    label: const Text('刷新'),
+                  ),
+                ],
+              ),
               const SizedBox(height: 10),
-              const Text('已迁移到 FlClash 底层（Stage-3）。下一步接入套餐与支付完整链路。'),
+              if (_offersLoading) const LinearProgressIndicator(minHeight: 2),
+              const SizedBox(height: 10),
+              if (_offers.isEmpty)
+                const Text('暂无套餐数据')
+              else
+                Expanded(
+                  child: ListView.separated(
+                    itemCount: _offers.length,
+                    separatorBuilder: (_, s) => const SizedBox(height: 8),
+                    itemBuilder: (_, i) {
+                      final offer = _offers[i];
+                      final first = offer.prices.entries.isNotEmpty ? offer.prices.entries.first : null;
+                      return Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0x220665D0)),
+                          color: Colors.white,
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(offer.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                                  const SizedBox(height: 4),
+                                  Text(first == null ? '-' : '${first.key} ¥${first.value.toStringAsFixed(2)}'),
+                                ],
+                              ),
+                            ),
+                            FilledButton(
+                              onPressed: () => _buy(offer),
+                              child: const Text('立即订阅'),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
               const SizedBox(height: 12),
               Wrap(
                 spacing: 8,

@@ -38,6 +38,17 @@ class FlClashV2etBridge implements V2etBridge {
   }
 
   @override
+  Future<List<V2etStoreOffer>> fetchStoreOffers() => _fetchStoreOffers();
+
+  @override
+  Future<Uri> startCheckout({
+    required int planId,
+    required String period,
+    String? couponCode,
+  }) =>
+      _startCheckout(planId: planId, period: period, couponCode: couponCode);
+
+  @override
   Future<V2etProxyMode> getProxyMode() async {
     final tunEnabled = _ref.read(
       patchClashConfigProvider.select((state) => state.tun.enable),
@@ -164,5 +175,73 @@ class FlClashV2etBridge implements V2etBridge {
     if (value is int) return value;
     if (value is num) return value.toInt();
     return int.tryParse('${value ?? ''}') ?? 0;
+  }
+
+  Future<List<V2etStoreOffer>> _fetchStoreOffers() async {
+    final session = await _sessionStore.read();
+    if (session == null || !session.hasToken) {
+      throw StateError('session not found');
+    }
+    final plans = await _panelApi.fetchPlans(baseUrl: session.baseUrl, accessToken: session.accessToken);
+    final offers = <V2etStoreOffer>[];
+    for (final item in plans) {
+      final id = _toInt(item['id']);
+      if (id <= 0) continue;
+      final name = '${item['name'] ?? item['title'] ?? 'Plan'}'.trim();
+      final prices = <String, double>{};
+      const keys = ['month', 'quarter', 'half_year', 'year', 'two_year', 'three_year', 'onetime', 'reset'];
+      for (final key in keys) {
+        final raw = item[key];
+        if (raw == null) continue;
+        final value = raw is num ? raw.toDouble() : double.tryParse('$raw');
+        if (value != null && value > 0) prices[key] = value;
+      }
+      offers.add(V2etStoreOffer(id: id, name: name.isEmpty ? 'Plan #$id' : name, prices: prices));
+    }
+    return offers;
+  }
+
+  Future<Uri> _startCheckout({
+    required int planId,
+    required String period,
+    String? couponCode,
+  }) async {
+    final session = await _sessionStore.read();
+    if (session == null || !session.hasToken) {
+      throw StateError('session not found');
+    }
+
+    final orders = await _panelApi.fetchPendingOrders(baseUrl: session.baseUrl, accessToken: session.accessToken);
+    for (final order in orders) {
+      final status = _toInt(order['status']);
+      final tradeNo = '${order['trade_no'] ?? ''}'.trim();
+      if (status == 0 && tradeNo.isNotEmpty) {
+        try {
+          await _panelApi.cancelOrder(
+            baseUrl: session.baseUrl,
+            accessToken: session.accessToken,
+            tradeNo: tradeNo,
+          );
+        } catch (_) {}
+      }
+    }
+
+    final tradeNo = await _panelApi.saveOrder(
+      baseUrl: session.baseUrl,
+      accessToken: session.accessToken,
+      planId: planId,
+      period: period,
+      couponCode: couponCode,
+    );
+    final payUrl = await _panelApi.checkoutOrder(
+      baseUrl: session.baseUrl,
+      accessToken: session.accessToken,
+      tradeNo: tradeNo,
+    );
+    final uri = Uri.tryParse(payUrl);
+    if (uri == null || !uri.hasScheme) {
+      throw StateError('invalid pay url');
+    }
+    return uri;
   }
 }
