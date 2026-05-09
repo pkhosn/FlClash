@@ -2,10 +2,20 @@ name: build
 
 on:
   push:
+    branches:
+      - develop
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      v2et_config_url:
+        description: 'Optional V2ET runtime config URL'
+        required: false
+        default: ''
 env:
   IS_STABLE: ${{ !contains(github.ref, '-') }}
+  ENABLE_V2ET_SHELL: 'true'
+  V2ET_CONFIG_URL: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.v2et_config_url || '' }}
 
 jobs:
   build:
@@ -85,7 +95,12 @@ jobs:
           flutter pub get
 
       - name: Setup
-        run: dart setup.dart ${{ matrix.platform }} ${{ matrix.arch && format('--arch {0}', matrix.arch) }} ${{ env.IS_STABLE == 'true' && '--env stable' || '' }}
+        run: |
+          FLUTTER_ARGS=" --flutter-build-args=dart-define=ENABLE_V2ET_SHELL=${ENABLE_V2ET_SHELL}"
+          if [ -n "${V2ET_CONFIG_URL}" ]; then
+            FLUTTER_ARGS="${FLUTTER_ARGS},dart-define=V2ET_CONFIG_URL=${V2ET_CONFIG_URL}"
+          fi
+          dart setup.dart ${{ matrix.platform }} ${{ matrix.arch && format('--arch {0}', matrix.arch) }} ${{ env.IS_STABLE == 'true' && '--env stable' || '' }} ${FLUTTER_ARGS}
 
       - name: Upload
         uses: actions/upload-artifact@v4
@@ -245,4 +260,3 @@ jobs:
           target-branch: main
           commit-message: Update from ${{ github.ref_name }}
           target-directory: /tmp/
-
