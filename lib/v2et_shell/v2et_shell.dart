@@ -377,6 +377,9 @@ class _MainShellState extends ConsumerState<_MainShell> {
   bool _showSupport = false;
   bool _showNodePicker = false;
   int _activeGroupIndex = 0;
+  String _activeNodeName = '自动选择';
+  String? _loadError;
+  bool _loadingData = false;
   final GlobalKey _supportKey = GlobalKey();
   final List<_NodeGroup> _nodeGroups = const [
     _NodeGroup('主策略', '自动选择', [
@@ -405,10 +408,20 @@ class _MainShellState extends ConsumerState<_MainShell> {
   }
 
   Future<void> _init() async {
-    await _syncMode();
-    await _loadSubscription();
-    await _loadOffers();
-    await _loadOrders();
+    setState(() {
+      _loadingData = true;
+      _loadError = null;
+    });
+    try {
+      await _syncMode();
+      await _loadSubscription();
+      await _loadOffers();
+      await _loadOrders();
+    } catch (e) {
+      _loadError = '$e';
+    } finally {
+      if (mounted) setState(() => _loadingData = false);
+    }
   }
 
   Future<void> _syncMode() async {
@@ -420,21 +433,27 @@ class _MainShellState extends ConsumerState<_MainShell> {
     try {
       _subscription = await ref.read(v2etBridgeProvider).fetchSubscription();
       if (mounted) setState(() {});
-    } catch (_) {}
+    } catch (e) {
+      _loadError = '$e';
+    }
   }
 
   Future<void> _loadOffers() async {
     try {
       _offers = await ref.read(v2etBridgeProvider).fetchStoreOffers();
       if (mounted) setState(() {});
-    } catch (_) {}
+    } catch (e) {
+      _loadError = '$e';
+    }
   }
 
   Future<void> _loadOrders() async {
     try {
       _orders = await ref.read(v2etBridgeProvider).fetchOrders();
       if (mounted) setState(() {});
-    } catch (_) {}
+    } catch (e) {
+      _loadError = '$e';
+    }
   }
 
   Future<void> _connectToggle() async {
@@ -529,7 +548,33 @@ class _MainShellState extends ConsumerState<_MainShell> {
                     Expanded(
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(10, 0, 14, 14),
-                        child: _body(),
+                        child: Column(
+                          children: [
+                            if (_loadError != null)
+                              Container(
+                                width: double.infinity,
+                                margin: const EdgeInsets.only(bottom: 8),
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFFF2F2),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: const Color(0xFFFFD1D1),
+                                  ),
+                                ),
+                                child: Text(
+                                  _loadError!,
+                                  style: const TextStyle(
+                                    color: Color(0xFFB91C1C),
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            if (_loadingData)
+                              const LinearProgressIndicator(minHeight: 2),
+                            Expanded(child: _body()),
+                          ],
+                        ),
                       ),
                     ),
                   ],
@@ -769,9 +814,9 @@ class _MainShellState extends ConsumerState<_MainShell> {
                   child: const Icon(Icons.public_rounded, color: _kPrimary),
                 ),
                 const SizedBox(width: 10),
-                const Expanded(
+                Expanded(
                   child: Text(
-                    '自动选择',
+                    _activeNodeName,
                     style: TextStyle(
                       color: Color(0xFF1F2937),
                       fontWeight: FontWeight.w700,
@@ -942,11 +987,19 @@ class _MainShellState extends ConsumerState<_MainShell> {
                                     ),
                                     const SizedBox(width: 10),
                                     Expanded(
-                                      child: Text(
-                                        n.name,
-                                        style: const TextStyle(
-                                          color: Color(0xFF111827),
-                                          fontWeight: FontWeight.w600,
+                                      child: InkWell(
+                                        onTap: () {
+                                          setState(() {
+                                            _activeNodeName = n.name;
+                                            _showNodePicker = false;
+                                          });
+                                        },
+                                        child: Text(
+                                          n.name,
+                                          style: const TextStyle(
+                                            color: Color(0xFF111827),
+                                            fontWeight: FontWeight.w600,
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -1159,7 +1212,7 @@ class _MainShellState extends ConsumerState<_MainShell> {
   }
 
   Widget _statusPage() {
-    final rows = _orders.take(3).toList();
+    final rows = _nodeGroups.expand((e) => e.nodes).take(10).toList();
     return ListView(
       children: [
         _card(
@@ -1177,7 +1230,8 @@ class _MainShellState extends ConsumerState<_MainShell> {
                   ),
                 );
               }
-              final o = rows[i];
+              final n = rows[i];
+              final timeout = n.delay < 0;
               return Container(
                 margin: EdgeInsets.only(bottom: i == rows.length - 1 ? 0 : 10),
                 padding: const EdgeInsets.all(12),
@@ -1192,11 +1246,23 @@ class _MainShellState extends ConsumerState<_MainShell> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        o.planName ?? o.tradeNo,
+                        n.name,
                         style: const TextStyle(fontWeight: FontWeight.w700),
                       ),
                     ),
-                    Text('状态 ${o.status}'),
+                    Text(
+                      timeout ? '超时' : '${n.delay}ms',
+                      style: TextStyle(
+                        color: timeout
+                            ? Colors.red
+                            : (n.delay > 500
+                                  ? Colors.red
+                                  : (n.delay > 250
+                                        ? Colors.orange
+                                        : Colors.green)),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ],
                 ),
               );
