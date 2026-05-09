@@ -10,6 +10,7 @@ import 'package:fl_clash/manager/manager.dart';
 import 'package:fl_clash/plugins/app.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/state.dart';
+import 'package:fl_clash/v2et_shell/v2et_shell.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -27,6 +28,10 @@ class Application extends ConsumerStatefulWidget {
 class ApplicationState extends ConsumerState<Application> {
   Timer? _autoUpdateProfilesTaskTimer;
   bool _preHasVpn = false;
+  static const _enableV2etShell = bool.fromEnvironment(
+    'ENABLE_V2ET_SHELL',
+    defaultValue: false,
+  );
 
   final _pageTransitionsTheme = const PageTransitionsTheme(
     builders: <TargetPlatform, PageTransitionsBuilder>{
@@ -158,7 +163,7 @@ class ApplicationState extends ConsumerState<Application> {
           home: child!,
         );
       },
-      child: const HomePage(),
+      child: _enableV2etShell ? const V2etShellPage() : const HomePage(),
     );
   }
 
