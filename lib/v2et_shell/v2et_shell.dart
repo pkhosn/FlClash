@@ -371,7 +371,6 @@ class _MainShellState extends ConsumerState<_MainShell> {
   V2etProxyMode _mode = V2etProxyMode.smart;
   V2etSubscription? _subscription;
   List<V2etStoreOffer> _offers = const [];
-  List<V2etOrder> _orders = const [];
   bool _busy = false;
   bool _connected = false;
   bool _showSupport = false;
@@ -416,7 +415,6 @@ class _MainShellState extends ConsumerState<_MainShell> {
       await _syncMode();
       await _loadSubscription();
       await _loadOffers();
-      await _loadOrders();
     } catch (e) {
       _loadError = '$e';
     } finally {
@@ -441,15 +439,6 @@ class _MainShellState extends ConsumerState<_MainShell> {
   Future<void> _loadOffers() async {
     try {
       _offers = await ref.read(v2etBridgeProvider).fetchStoreOffers();
-      if (mounted) setState(() {});
-    } catch (e) {
-      _loadError = '$e';
-    }
-  }
-
-  Future<void> _loadOrders() async {
-    try {
-      _orders = await ref.read(v2etBridgeProvider).fetchOrders();
       if (mounted) setState(() {});
     } catch (e) {
       _loadError = '$e';
@@ -497,7 +486,6 @@ class _MainShellState extends ConsumerState<_MainShell> {
           .startCheckout(planId: offer.id, period: period);
       await launchUrl(payUri, mode: LaunchMode.externalApplication);
       await _loadSubscription();
-      await _loadOrders();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -994,11 +982,25 @@ class _MainShellState extends ConsumerState<_MainShell> {
                                             _showNodePicker = false;
                                           });
                                         },
-                                        child: Text(
-                                          n.name,
-                                          style: const TextStyle(
-                                            color: Color(0xFF111827),
-                                            fontWeight: FontWeight.w600,
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 4,
+                                            horizontal: 6,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: _activeNodeName == n.name
+                                                ? const Color(0xFFE8F1FD)
+                                                : Colors.transparent,
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            n.name,
+                                            style: const TextStyle(
+                                              color: Color(0xFF111827),
+                                              fontWeight: FontWeight.w600,
+                                            ),
                                           ),
                                         ),
                                       ),
@@ -1303,6 +1305,15 @@ class _MainShellState extends ConsumerState<_MainShell> {
           ),
         ),
         const SizedBox(height: 16),
+        const Text(
+          '账户与安全',
+          style: TextStyle(
+            color: Color(0xFF111827),
+            fontWeight: FontWeight.w800,
+            fontSize: 20,
+          ),
+        ),
+        const SizedBox(height: 8),
         _ChangePasswordPanel(onSubmit: _changePassword),
       ],
     ),
@@ -1340,6 +1351,18 @@ class _MainShellState extends ConsumerState<_MainShell> {
               trailing: Switch(
                 value: _showSupport,
                 onChanged: (v) => setState(() => _showSupport = v),
+              ),
+            ),
+            const Divider(height: 20),
+            const _SettingRow(
+              title: '主题色',
+              subtitle: '当前打包固定主题色',
+              trailing: Text(
+                '#0665D0',
+                style: TextStyle(
+                  color: Color(0xFF111827),
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
           ],
