@@ -23,7 +23,6 @@ env:
 
 jobs:
   build:
-    if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.target_platform == 'all' || github.event.inputs.target_platform == matrix.platform }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -51,8 +50,19 @@ jobs:
             arch: arm64
 
     steps:
+      - name: Select target
+        id: gate
+        shell: bash
+        run: |
+          TARGET="${{ github.event_name == 'workflow_dispatch' && github.event.inputs.target_platform || 'all' }}"
+          if [ "$TARGET" = "all" ] || [ "$TARGET" = "${{ matrix.platform }}" ]; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Setup rust
-        if: startsWith(matrix.os, 'windows-11-arm')
+        if: steps.gate.outputs.build == 'true' && startsWith(matrix.os, 'windows-11-arm')
         run: |
           Invoke-WebRequest -Uri "https://win.rustup.rs/aarch64" -OutFile rustup-init.exe
           .\rustup-init.exe -y --default-toolchain stable
@@ -60,12 +70,13 @@ jobs:
           Add-Content $env:GITHUB_PATH $cargoPath
 
       - name: Checkout
+        if: steps.gate.outputs.build == 'true'
         uses: actions/checkout@v4
         with:
           submodules: recursive
 
       - name: Setup Android Signing
-        if: startsWith(matrix.platform,'android')
+        if: steps.gate.outputs.build == 'true' && startsWith(matrix.platform,'android')
         run: |
           echo "${{ secrets.KEYSTORE }}" | base64 --decode > android/app/keystore.jks
           echo "${{ secrets.SERVICE_JSON }}" | base64 --decode > android/app/google-services.json
@@ -74,6 +85,7 @@ jobs:
           echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/local.properties
 
       - name: Setup Go
+        if: steps.gate.outputs.build == 'true'
         uses: actions/setup-go@v5
         with:
           go-version: '1.24.0'
@@ -81,14 +93,14 @@ jobs:
             core/go.sum
 
       - name: Setup Flutter
-        if: ${{ !(startsWith(matrix.os, 'windows-11-arm') || startsWith(matrix.os, 'ubuntu-24.04-arm')) }}
+        if: steps.gate.outputs.build == 'true' && !(startsWith(matrix.os, 'windows-11-arm') || startsWith(matrix.os, 'ubuntu-24.04-arm'))
         uses: subosito/flutter-action@v2
         with:
           channel: stable
           flutter-version: 3.35.7
           cache: true
       - name: Setup Flutter With Other
-        if: startsWith(matrix.os, 'windows-11-arm') || startsWith(matrix.os, 'ubuntu-24.04-arm')
+        if: steps.gate.outputs.build == 'true' && (startsWith(matrix.os, 'windows-11-arm') || startsWith(matrix.os, 'ubuntu-24.04-arm'))
         uses: subosito/flutter-action@v2
         with:
           channel: master
@@ -96,11 +108,13 @@ jobs:
           cache: true
 
       - name: Get Flutter Dependency
+        if: steps.gate.outputs.build == 'true'
         run: |
           flutter --version
           flutter pub get
 
       - name: Setup
+        if: steps.gate.outputs.build == 'true'
         run: |
           FLUTTER_ARGS=" --flutter-build-args=dart-define=ENABLE_V2ET_SHELL=${ENABLE_V2ET_SHELL}"
           if [ -n "${V2ET_CONFIG_URL}" ]; then
@@ -109,6 +123,7 @@ jobs:
           dart setup.dart ${{ matrix.platform }} ${{ matrix.arch && format('--arch {0}', matrix.arch) }} ${{ env.IS_STABLE == 'true' && '--env stable' || '' }} ${FLUTTER_ARGS}
 
       - name: Upload
+        if: steps.gate.outputs.build == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: artifact-${{ matrix.platform }}${{ matrix.arch && format('-{0}', matrix.arch) }}
@@ -116,7 +131,7 @@ jobs:
           overwrite: true
 
   changelog:
-    if: ${{ startsWith(github.ref, 'refs/tags/v') && env.IS_STABLE == 'true' }}
+    if: ${{ startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-') }}
     runs-on: ubuntu-latest
     needs: [ build ]
     steps:
