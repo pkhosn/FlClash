@@ -113,6 +113,7 @@ jobs:
 
       - name: Setup
         if: steps.gate.outputs.build == 'true'
+        shell: bash
         run: |
           FLUTTER_ARGS=" --flutter-build-args=dart-define=ENABLE_V2ET_SHELL=${ENABLE_V2ET_SHELL}"
           if [ -n "${V2ET_CONFIG_URL}" ]; then
