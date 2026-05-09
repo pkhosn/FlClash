@@ -356,6 +356,10 @@ class BuildCommand extends Command {
       valueHelp: ['pre', 'stable'].join(','),
       help: 'The $name build env',
     );
+    argParser.addOption(
+      'flutter-build-args',
+      help: 'Extra flutter build args for flutter_distributor',
+    );
   }
 
   @override
@@ -416,12 +420,18 @@ class BuildCommand extends Command {
     required String targets,
     String args = '',
     required String env,
+    String extraFlutterBuildArgs = '',
   }) async {
     await Build.getDistributor();
+    final combinedBuildArgs = [
+      'verbose',
+      'dart-define-from-file=env.json',
+      if (extraFlutterBuildArgs.trim().isNotEmpty) extraFlutterBuildArgs.trim(),
+    ].join(',');
     await Build.exec(
       name: name,
       Build.getExecutable(
-        'flutter_distributor package --skip-clean --platform ${target.name} --targets $targets --flutter-build-args=verbose,dart-define-from-file=env.json$args',
+        'flutter_distributor package --skip-clean --platform ${target.name} --targets $targets --flutter-build-args=$combinedBuildArgs$args',
       ),
     );
   }
@@ -442,6 +452,8 @@ class BuildCommand extends Command {
     final String out = argResults?['out'] ?? (target.same ? 'app' : 'core');
     final archName = argResults?['arch'];
     final env = argResults?['env'] ?? 'pre';
+    final extraFlutterBuildArgs =
+        (argResults?['flutter-build-args'] as String?) ?? '';
     final currentArches = arches
         .where((element) => element.name == archName)
         .toList();
@@ -475,6 +487,7 @@ class BuildCommand extends Command {
           targets: 'exe,zip',
           args: ' --description $archName',
           env: env,
+          extraFlutterBuildArgs: extraFlutterBuildArgs,
         );
         return;
       case Target.linux:
@@ -492,6 +505,7 @@ class BuildCommand extends Command {
           args:
               ' --description $archName --build-target-platform $defaultTarget',
           env: env,
+          extraFlutterBuildArgs: extraFlutterBuildArgs,
         );
         return;
       case Target.android:
@@ -511,6 +525,7 @@ class BuildCommand extends Command {
           args:
               ",split-per-abi --build-target-platform ${defaultTargets.join(",")}",
           env: env,
+          extraFlutterBuildArgs: extraFlutterBuildArgs,
         );
         return;
       case Target.macos:
@@ -520,6 +535,7 @@ class BuildCommand extends Command {
           targets: 'dmg',
           args: ' --description $archName',
           env: env,
+          extraFlutterBuildArgs: extraFlutterBuildArgs,
         );
         return;
     }
