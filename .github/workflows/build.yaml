@@ -97,14 +97,14 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-          flutter-version: 3.35.7
+          flutter-version: 3.38.5
           cache: true
       - name: Setup Flutter With Other
         if: steps.gate.outputs.build == 'true' && (startsWith(matrix.os, 'windows-11-arm') || startsWith(matrix.os, 'ubuntu-24.04-arm'))
         uses: subosito/flutter-action@v2
         with:
           channel: master
-          flutter-version: 3.35.7
+          flutter-version: 3.38.5
           cache: true
 
       - name: Get Flutter Dependency
