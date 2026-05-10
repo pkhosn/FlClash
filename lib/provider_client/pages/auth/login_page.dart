@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../mock/mock_provider_data.dart';
 import '../../theme/provider_tokens.dart';
 import '../../widgets/app_button.dart';
 import '../../widgets/app_input.dart';
@@ -31,7 +30,7 @@ class V2ETLoginPage extends StatefulWidget {
 
 class _V2ETLoginPageState extends State<V2ETLoginPage> {
   bool remember = true;
-  final _emailController = TextEditingController(text: mockEmail);
+  final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
 
   @override
@@ -80,14 +79,14 @@ class _V2ETLoginPageState extends State<V2ETLoginPage> {
             const SizedBox(height: 26),
             V2ETInput(
               controller: _emailController,
-              hintText: mockEmail,
+              hintText: '请输入邮箱',
               prefixIcon: Icons.mail_outline_rounded,
               height: 40,
             ),
             const SizedBox(height: 12),
             V2ETInput(
               controller: _passwordController,
-              hintText: '••••••••••',
+              hintText: '请输入密码',
               prefixIcon: Icons.lock_outline_rounded,
               obscureText: true,
               height: 40,
