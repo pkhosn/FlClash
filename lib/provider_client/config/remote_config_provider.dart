@@ -1,16 +1,18 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'app_config_model.dart';
-import 'default_app_config.dart';
+import 'remote_config_service.dart';
 
-/// 不依赖 Riverpod 的最小配置持有器，方便先塞进半成品项目。
-/// 后续可以替换成 Riverpod Provider / Notifier。
-class RemoteConfigStore {
-  RemoteConfigStore._();
-  static final RemoteConfigStore instance = RemoteConfigStore._();
+final appConfigProvider = NotifierProvider<AppConfigNotifier, AppConfig>(() {
+  return AppConfigNotifier();
+});
 
-  AppConfig _config = defaultAppConfig;
-  AppConfig get config => _config;
+class AppConfigNotifier extends Notifier<AppConfig> {
+  @override
+  AppConfig build() => AppConfig.defaultConfig();
 
-  void update(AppConfig config) {
-    _config = config;
+  Future<void> loadConfig() async {
+    final config = await RemoteConfigService.fetchConfig();
+    state = config;
   }
 }

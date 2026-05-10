@@ -1,24 +1,27 @@
 import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
+
 import 'app_config_model.dart';
-import 'default_app_config.dart';
 
 class RemoteConfigService {
-  const RemoteConfigService();
+  static const String configUrl =
+      'https://hko-1312628321.cos.ap-guangzhou.myqcloud.com/config.json';
 
-  /// 第一阶段仅提供结构。后续接对象存储时，把 bundleConfigPath 换成网络 URL 拉取逻辑。
-  Future<AppConfig> load({String? bundleConfigPath}) async {
-    if (bundleConfigPath == null || bundleConfigPath.isEmpty) {
-      return defaultAppConfig;
-    }
+  static Future<AppConfig> fetchConfig() async {
     try {
-      final raw = await rootBundle.loadString(bundleConfigPath);
-      final json = jsonDecode(raw) as Map<String, dynamic>;
-      return AppConfig.fromJson(json);
+      final response = await http.get(Uri.parse(configUrl));
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> jsonMap =
+            json.decode(response.body) as Map<String, dynamic>;
+        return AppConfig.fromJson(jsonMap);
+      }
+      debugPrint('Failed to load remote config: ${response.statusCode}');
+      return AppConfig.defaultConfig();
     } catch (e) {
-      debugPrint('RemoteConfig fallback: $e');
-      return defaultAppConfig;
+      debugPrint('Error fetching remote config: $e');
+      return AppConfig.defaultConfig();
     }
   }
 }

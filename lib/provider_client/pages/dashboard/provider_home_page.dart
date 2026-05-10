@@ -5,7 +5,9 @@ import 'notice_dialog.dart';
 import 'proxy_group_dialog.dart';
 
 class V2ETProviderHomePage extends StatelessWidget {
-  const V2ETProviderHomePage({super.key});
+  const V2ETProviderHomePage({super.key, this.showNoticePopup = true});
+
+  final bool showNoticePopup;
 
   @override
   Widget build(BuildContext context) {
@@ -16,7 +18,10 @@ class V2ETProviderHomePage extends StatelessWidget {
           constraints: const BoxConstraints(maxWidth: 720),
           child: Column(
             children: [
-              _UsageCard(onNotice: () => showV2ETNoticeDialog(context)),
+              _UsageCard(
+                onNotice: () => showV2ETNoticeDialog(context),
+                showNoticePopup: showNoticePopup,
+              ),
               const SizedBox(height: 58),
               const _PowerButton(),
               const SizedBox(height: 30),
@@ -32,8 +37,9 @@ class V2ETProviderHomePage extends StatelessWidget {
 }
 
 class _UsageCard extends StatelessWidget {
-  const _UsageCard({required this.onNotice});
+  const _UsageCard({required this.onNotice, required this.showNoticePopup});
   final VoidCallback onNotice;
+  final bool showNoticePopup;
 
   @override
   Widget build(BuildContext context) {
@@ -58,45 +64,46 @@ class _UsageCard extends StatelessWidget {
                   align: CrossAxisAlignment.end,
                 ),
               ),
-              Row(
-                children: [
-                  _ActionIcon(icon: Icons.refresh_rounded, onTap: () {}),
-                  const SizedBox(width: 8),
-                  _ActionIcon(icon: Icons.public_rounded, onTap: () {}),
-                  const SizedBox(width: 8),
-                  Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      _ActionIcon(
-                        icon: Icons.campaign_rounded,
-                        onTap: onNotice,
-                      ),
-                      Positioned(
-                        right: -4,
-                        top: -6,
-                        child: Container(
-                          width: 16,
-                          height: 16,
-                          decoration: const BoxDecoration(
-                            color: V2ETTokens.primary,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Center(
-                            child: Text(
-                              '5',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w900,
+              if (showNoticePopup)
+                Row(
+                  children: [
+                    _ActionIcon(icon: Icons.refresh_rounded, onTap: () {}),
+                    const SizedBox(width: 8),
+                    _ActionIcon(icon: Icons.public_rounded, onTap: () {}),
+                    const SizedBox(width: 8),
+                    Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        _ActionIcon(
+                          icon: Icons.campaign_rounded,
+                          onTap: onNotice,
+                        ),
+                        Positioned(
+                          right: -4,
+                          top: -6,
+                          child: Container(
+                            width: 16,
+                            height: 16,
+                            decoration: const BoxDecoration(
+                              color: V2ETTokens.primary,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Center(
+                              child: Text(
+                                '5',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w900,
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+                      ],
+                    ),
+                  ],
+                ),
             ],
           ),
           const SizedBox(height: 10),
