@@ -386,6 +386,8 @@ class _MainShellState extends ConsumerState<_MainShell> {
   final TextEditingController _statusQueryCtrl = TextEditingController();
   String? _loadError;
   bool _loadingData = false;
+  int _statusSortType =
+      0; // 0 delay(time), 1 upload(name asc), 2 download(name desc)
   final GlobalKey _supportKey = GlobalKey();
   List<_NodeGroup> _nodeGroups = const [];
   bool _noticeShown = false;
@@ -478,7 +480,9 @@ class _MainShellState extends ConsumerState<_MainShell> {
   int _activeNodeDelay() {
     if (_nodeGroups.isEmpty) return -1;
     final group = _nodeGroups[_activeGroupIndex];
-    final node = group.nodes.where((e) => e.name == _activeNodeName).firstOrNull;
+    final node = group.nodes
+        .where((e) => e.name == _activeNodeName)
+        .firstOrNull;
     return node?.delay ?? -1;
   }
 
@@ -885,10 +889,10 @@ class _MainShellState extends ConsumerState<_MainShell> {
                     color: _activeNodeDelay() < 0
                         ? Colors.red
                         : (_activeNodeDelay() > 500
-                            ? Colors.red
-                            : (_activeNodeDelay() > 250
-                                ? Colors.orange
-                                : Colors.green)),
+                              ? Colors.red
+                              : (_activeNodeDelay() > 250
+                                    ? Colors.orange
+                                    : Colors.green)),
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -1053,6 +1057,7 @@ class _MainShellState extends ConsumerState<_MainShell> {
                               const Spacer(),
                               FilledButton.tonal(
                                 onPressed: () {
+                                  appController.updateGroupsDebounce();
                                   _syncNodeGroupsFromCore();
                                   setState(() {});
                                 },
@@ -1329,9 +1334,25 @@ class _MainShellState extends ConsumerState<_MainShell> {
   Widget _statusPage() {
     final rows = _nodeGroups.expand((e) => e.nodes).toList();
     final query = _statusQueryCtrl.text.trim().toLowerCase();
-    final filtered = query.isEmpty
+    final filteredRaw = query.isEmpty
         ? rows
         : rows.where((e) => e.name.toLowerCase().contains(query)).toList();
+    final filtered = List<_NodeItem>.from(filteredRaw);
+    switch (_statusSortType) {
+      case 0:
+        filtered.sort((a, b) {
+          final ad = a.delay < 0 ? 999999 : a.delay;
+          final bd = b.delay < 0 ? 999999 : b.delay;
+          return ad.compareTo(bd);
+        });
+        break;
+      case 1:
+        filtered.sort((a, b) => a.name.compareTo(b.name));
+        break;
+      case 2:
+        filtered.sort((a, b) => b.name.compareTo(a.name));
+        break;
+    }
     return ListView(
       children: [
         Row(
@@ -1339,6 +1360,7 @@ class _MainShellState extends ConsumerState<_MainShell> {
             Expanded(
               child: TextField(
                 controller: _statusQueryCtrl,
+                onChanged: (_) => setState(() {}),
                 decoration: InputDecoration(
                   hintText: '搜索连接...',
                   prefixIcon: const Icon(Icons.search_rounded),
@@ -1375,6 +1397,27 @@ class _MainShellState extends ConsumerState<_MainShell> {
             IconButton(
               onPressed: () => setState(() => _statusQueryCtrl.clear()),
               icon: const Icon(Icons.delete_rounded),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          children: [
+            ChoiceChip(
+              label: const Text('时间'),
+              selected: _statusSortType == 0,
+              onSelected: (_) => setState(() => _statusSortType = 0),
+            ),
+            ChoiceChip(
+              label: const Text('上传流量'),
+              selected: _statusSortType == 1,
+              onSelected: (_) => setState(() => _statusSortType = 1),
+            ),
+            ChoiceChip(
+              label: const Text('下载流量'),
+              selected: _statusSortType == 2,
+              onSelected: (_) => setState(() => _statusSortType = 2),
             ),
           ],
         ),
