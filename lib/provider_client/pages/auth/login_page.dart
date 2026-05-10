@@ -20,6 +20,8 @@ class V2ETLoginPage extends StatefulWidget {
     required this.onLanguageTap,
     required this.onThemeToggle,
     required this.isDarkMode,
+    required this.serviceOk,
+    required this.onServiceTap,
     this.initialEmail = '',
     this.initialPassword = '',
     this.initialRemember = false,
@@ -37,6 +39,8 @@ class V2ETLoginPage extends StatefulWidget {
   final VoidCallback onLanguageTap;
   final VoidCallback onThemeToggle;
   final bool isDarkMode;
+  final bool serviceOk;
+  final VoidCallback onServiceTap;
   final String initialEmail;
   final String initialPassword;
   final bool initialRemember;
@@ -75,6 +79,8 @@ class _V2ETLoginPageState extends State<V2ETLoginPage> {
         context,
         crispWebsiteId: widget.crispWebsiteId,
       ),
+      serviceOk: widget.serviceOk,
+      onServiceTap: widget.onServiceTap,
       child: AuthGlassCard(
         child: Column(
           mainAxisSize: MainAxisSize.min,

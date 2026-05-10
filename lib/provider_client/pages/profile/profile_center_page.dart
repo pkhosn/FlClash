@@ -1,25 +1,43 @@
 import 'package:flutter/material.dart';
-import '../../mock/mock_provider_data.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../data/v2et_runtime_providers.dart';
 import '../../theme/provider_tokens.dart';
 import '../../widgets/app_button.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/app_input.dart';
 
-class V2ETProfileCenterPage extends StatelessWidget {
+class V2ETProfileCenterPage extends ConsumerWidget {
   const V2ETProfileCenterPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final subAsync = ref.watch(v2etSubscriptionProvider);
+    final inviteAsync = ref.watch(v2etInviteProvider);
+    final sub = subAsync.when(
+      data: (data) => data,
+      loading: () => null,
+      error: (_, _) => null,
+    );
+    final invite = inviteAsync.when(
+      data: (data) => data,
+      loading: () => null,
+      error: (_, _) => null,
+    );
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(24, 26, 24, 24),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 720),
           child: Column(
-            children: const [
-              _AccountHeroCard(),
-              SizedBox(height: 18),
-              _SecurityCard(),
+            children: [
+              _AccountHeroCard(
+                email: '--',
+                planName: sub?.planName ?? '--',
+                balance: 0,
+                commission: invite?.totalCommission ?? 0,
+              ),
+              const SizedBox(height: 18),
+              const _SecurityCard(),
             ],
           ),
         ),
@@ -29,7 +47,17 @@ class V2ETProfileCenterPage extends StatelessWidget {
 }
 
 class _AccountHeroCard extends StatelessWidget {
-  const _AccountHeroCard();
+  const _AccountHeroCard({
+    required this.email,
+    required this.planName,
+    required this.balance,
+    required this.commission,
+  });
+  final String email;
+  final String planName;
+  final double balance;
+  final double commission;
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -80,8 +108,8 @@ class _AccountHeroCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 14),
-              const Text(
-                mockEmail,
+              Text(
+                email,
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w900,
@@ -95,29 +123,29 @@ class _AccountHeroCard extends StatelessWidget {
             right: 0,
             bottom: 2,
             child: Row(
-              children: const [
+              children: [
                 Expanded(
                   child: _HeroMetric(
                     icon: Icons.verified_rounded,
                     label: '套餐',
-                    value: mockPlanName,
+                    value: planName,
                   ),
                 ),
-                SizedBox(width: 12),
+                const SizedBox(width: 12),
                 Expanded(
                   child: _HeroMetric(
                     icon: Icons.account_balance_wallet_rounded,
                     label: '余额',
-                    value: '¥0.00',
+                    value: '¥${balance.toStringAsFixed(2)}',
                     chip: '充值',
                   ),
                 ),
-                SizedBox(width: 12),
+                const SizedBox(width: 12),
                 Expanded(
                   child: _HeroMetric(
                     icon: Icons.savings_rounded,
                     label: '佣金',
-                    value: '¥0.00',
+                    value: '¥${commission.toStringAsFixed(2)}',
                   ),
                 ),
               ],

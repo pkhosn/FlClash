@@ -8,12 +8,14 @@ import 'package:fl_clash/v2et_bridge/v2et_bridge_provider.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'config/remote_config_provider.dart';
 import 'config/app_config_model.dart';
+import 'config/api_health_service.dart';
 import 'config/auth_bootstrap_service.dart';
 import 'theme/provider_theme.dart';
 import 'theme/provider_tokens.dart';
 import 'app_shell/provider_client_page.dart';
 import 'widgets/provider_window_frame.dart';
 import 'widgets/provider_sidebar.dart';
+import 'widgets/auth_background.dart';
 import 'pages/auth/login_page.dart';
 import 'pages/auth/register_page.dart';
 import 'pages/auth/reset_password_page.dart';
@@ -64,6 +66,7 @@ class _V2ETAuthGateState extends ConsumerState<V2ETAuthGate> {
   List<String> _emailSuffixes = const ['qq.com'];
   List<String> _languageCodes = const ['zh-CN', 'en-US'];
   String _languageCode = 'zh-CN';
+  List<ApiHealthItem> _apiHealthItems = const [];
 
   bool get _isDarkMode {
     final mode = ref.read(themeSettingProvider).themeMode;
@@ -83,6 +86,7 @@ class _V2ETAuthGateState extends ConsumerState<V2ETAuthGate> {
       ref.read(appConfigProvider.notifier).loadConfig();
       await _loadPackageVersion();
       await _loadAuthBootstrap();
+      await _refreshApiHealth();
       await _restoreRememberedLogin();
       if (mounted) setState(() {});
       if (rememberMe &&
@@ -125,6 +129,8 @@ class _V2ETAuthGateState extends ConsumerState<V2ETAuthGate> {
         onLanguageTap: _cycleLanguage,
         onThemeToggle: _toggleThemeMode,
         isDarkMode: _isDarkMode,
+        serviceOk: _serviceOk,
+        onServiceTap: _showServiceDialog,
       );
     } else if (page == 'reset') {
       body = V2ETResetPasswordPage(
@@ -135,6 +141,8 @@ class _V2ETAuthGateState extends ConsumerState<V2ETAuthGate> {
         onLanguageTap: _cycleLanguage,
         onThemeToggle: _toggleThemeMode,
         isDarkMode: _isDarkMode,
+        serviceOk: _serviceOk,
+        onServiceTap: _showServiceDialog,
       );
     } else {
       body = V2ETLoginPage(
@@ -151,6 +159,8 @@ class _V2ETAuthGateState extends ConsumerState<V2ETAuthGate> {
         onLanguageTap: _cycleLanguage,
         onThemeToggle: _toggleThemeMode,
         isDarkMode: _isDarkMode,
+        serviceOk: _serviceOk,
+        onServiceTap: _showServiceDialog,
         initialEmail: rememberedEmail,
         initialPassword: rememberedPassword,
         initialRemember: rememberMe,
@@ -206,8 +216,8 @@ class _V2ETAuthGateState extends ConsumerState<V2ETAuthGate> {
     bool silent = false,
   }) async {
     final appConfig = ref.read(appConfigProvider);
-    final baseUrl = Uri.tryParse(appConfig.apiUrl.trim());
-    if (baseUrl == null || !baseUrl.hasScheme) {
+    final candidates = _candidateBaseUrls(appConfig);
+    if (candidates.isEmpty) {
       setState(() {
         loginError = '配置错误：API 地址无效';
       });
@@ -222,7 +232,24 @@ class _V2ETAuthGateState extends ConsumerState<V2ETAuthGate> {
     }
     try {
       final bridge = ref.read(v2etBridgeProvider);
-      await bridge.login(baseUrl: baseUrl, email: email, password: password);
+      Object? lastError;
+      Uri? activeBaseUrl;
+      for (final baseUrl in candidates) {
+        try {
+          await bridge.login(
+            baseUrl: baseUrl,
+            email: email,
+            password: password,
+          );
+          activeBaseUrl = baseUrl;
+          break;
+        } catch (e) {
+          lastError = e;
+        }
+      }
+      if (activeBaseUrl == null) {
+        throw StateError('所有 API 地址登录失败: $lastError');
+      }
       final subscription = await bridge.fetchSubscription();
 
       final profile = await Profile.normal(
@@ -306,17 +333,19 @@ class _V2ETAuthGateState extends ConsumerState<V2ETAuthGate> {
 
   Future<void> _loadAuthBootstrap() async {
     final appConfig = ref.read(appConfigProvider);
-    final baseUrl = Uri.tryParse(appConfig.apiUrl.trim());
-    if (baseUrl == null || !baseUrl.hasScheme) return;
-    try {
-      final data = await AuthBootstrapService().fetch(baseUrl);
-      _emailSuffixes = data.emailSuffixes;
-      _languageCodes = data.languages;
-      if (_languageCodes.isNotEmpty &&
-          !_languageCodes.contains(_languageCode)) {
-        _languageCode = _languageCodes.first;
-      }
-    } catch (_) {}
+    final candidates = _candidateBaseUrls(appConfig);
+    for (final baseUrl in candidates) {
+      try {
+        final data = await AuthBootstrapService().fetch(baseUrl);
+        _emailSuffixes = data.emailSuffixes;
+        _languageCodes = data.languages;
+        if (_languageCodes.isNotEmpty &&
+            !_languageCodes.contains(_languageCode)) {
+          _languageCode = _languageCodes.first;
+        }
+        break;
+      } catch (_) {}
+    }
   }
 
   void _cycleLanguage() {
@@ -337,6 +366,42 @@ class _V2ETAuthGateState extends ConsumerState<V2ETAuthGate> {
       return state.copyWith(themeMode: next);
     });
     if (mounted) setState(() {});
+  }
+
+  Future<void> _refreshApiHealth() async {
+    final appConfig = ref.read(appConfigProvider);
+    final urls = appConfig.apiUrls;
+    if (urls.isEmpty) return;
+    _apiHealthItems = await ApiHealthService().probeAll(urls);
+  }
+
+  bool get _serviceOk {
+    if (_apiHealthItems.isEmpty) return true;
+    return _apiHealthItems.any((e) => e.ok);
+  }
+
+  Future<void> _showServiceDialog() async {
+    await _refreshApiHealth();
+    if (!mounted) return;
+    await showServiceProbeDialog(context, items: _apiHealthItems);
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  List<Uri> _candidateBaseUrls(AppConfig appConfig) {
+    final list = <Uri>[];
+    for (final raw in appConfig.apiUrls) {
+      final uri = Uri.tryParse(raw.trim());
+      if (uri != null && uri.hasScheme) {
+        list.add(uri);
+      }
+    }
+    if (list.isEmpty) {
+      final primary = Uri.tryParse(appConfig.apiUrl.trim());
+      if (primary != null && primary.hasScheme) list.add(primary);
+    }
+    return list;
   }
 
   String _resolveVersionText(AppConfig appConfig) {

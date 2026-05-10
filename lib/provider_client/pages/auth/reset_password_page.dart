@@ -15,6 +15,8 @@ class V2ETResetPasswordPage extends StatelessWidget {
     required this.onLanguageTap,
     required this.onThemeToggle,
     required this.isDarkMode,
+    required this.serviceOk,
+    required this.onServiceTap,
   });
   final VoidCallback onLogin;
   final String authBackgroundUrl;
@@ -23,6 +25,8 @@ class V2ETResetPasswordPage extends StatelessWidget {
   final VoidCallback onLanguageTap;
   final VoidCallback onThemeToggle;
   final bool isDarkMode;
+  final bool serviceOk;
+  final VoidCallback onServiceTap;
 
   @override
   Widget build(BuildContext context) {
@@ -35,7 +39,9 @@ class V2ETResetPasswordPage extends StatelessWidget {
         context,
         crispWebsiteId: crispWebsiteId,
       ),
-      showServicePill: false,
+      serviceOk: serviceOk,
+      onServiceTap: onServiceTap,
+      showServicePill: true,
       child: AuthGlassCard(
         width: 445,
         child: Column(

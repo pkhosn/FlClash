@@ -1,15 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../mock/mock_provider_data.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../data/v2et_runtime_providers.dart';
 import '../../theme/provider_tokens.dart';
 import '../../widgets/app_button.dart';
 import '../../widgets/app_card.dart';
 
-class V2ETInvitePage extends StatelessWidget {
+class V2ETInvitePage extends ConsumerWidget {
   const V2ETInvitePage({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final inviteAsync = ref.watch(v2etInviteProvider);
+    final invite = inviteAsync.when(
+      data: (data) => data,
+      loading: () => null,
+      error: (_, _) => null,
+    );
+    final inviteCode = (invite?.codes.isNotEmpty ?? false)
+        ? invite!.codes.first
+        : '--';
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(24, 26, 24, 24),
       child: Center(
@@ -49,12 +59,12 @@ class V2ETInvitePage extends StatelessWidget {
                           Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             crossAxisAlignment: CrossAxisAlignment.start,
-                            children: const [
-                              Text('邀请码', style: V2ETTokens.mini),
-                              SizedBox(height: 10),
+                            children: [
+                              const Text('邀请码', style: V2ETTokens.mini),
+                              const SizedBox(height: 10),
                               Text(
-                                'L6C9jvcG',
-                                style: TextStyle(
+                                inviteCode,
+                                style: const TextStyle(
                                   fontSize: 29,
                                   fontWeight: FontWeight.w900,
                                   letterSpacing: 1.2,
@@ -69,7 +79,7 @@ class V2ETInvitePage extends StatelessWidget {
                             borderRadius: BorderRadius.circular(12),
                             child: InkWell(
                               onTap: () => Clipboard.setData(
-                                const ClipboardData(text: mockInviteCode),
+                                ClipboardData(text: inviteCode),
                               ),
                               borderRadius: BorderRadius.circular(12),
                               child: const SizedBox(
@@ -93,29 +103,29 @@ class V2ETInvitePage extends StatelessWidget {
                 radius: 16,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text('邀请统计', style: V2ETTokens.h3),
-                    SizedBox(height: 18),
+                  children: [
+                    const Text('邀请统计', style: V2ETTokens.h3),
+                    const SizedBox(height: 18),
                     Row(
                       children: [
                         Expanded(
                           child: _InviteMetric(
                             icon: Icons.people_alt_rounded,
-                            value: '0',
+                            value: '${invite?.inviteCount ?? 0}',
                             label: '总邀请数',
                           ),
                         ),
                         Expanded(
                           child: _InviteMetric(
                             icon: Icons.percent_rounded,
-                            value: '10.0%',
+                            value: '${(invite?.commissionRate ?? 0).toStringAsFixed(1)}%',
                             label: '佣金比例',
                           ),
                         ),
                         Expanded(
                           child: _InviteMetric(
                             icon: Icons.monetization_on_rounded,
-                            value: '¥0.00',
+                            value: '¥${(invite?.totalCommission ?? 0).toStringAsFixed(2)}',
                             label: '累计佣金',
                           ),
                         ),
@@ -144,8 +154,8 @@ class V2ETInvitePage extends StatelessWidget {
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             mainAxisAlignment: MainAxisAlignment.center,
-                            children: const [
-                              Text(
+                            children: [
+                              const Text(
                                 '可用佣金',
                                 style: TextStyle(
                                   color: Colors.white,
@@ -153,17 +163,17 @@ class V2ETInvitePage extends StatelessWidget {
                                   fontWeight: FontWeight.w800,
                                 ),
                               ),
-                              SizedBox(height: 14),
+                              const SizedBox(height: 14),
                               Text(
-                                '¥0.00',
-                                style: TextStyle(
+                                '¥${(invite?.totalCommission ?? 0).toStringAsFixed(2)}',
+                                style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 34,
                                   fontWeight: FontWeight.w900,
                                 ),
                               ),
-                              SizedBox(height: 8),
-                              Text(
+                              const SizedBox(height: 8),
+                              const Text(
                                 '可划转到余额',
                                 style: TextStyle(
                                   color: Colors.white,

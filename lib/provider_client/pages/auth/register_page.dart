@@ -17,6 +17,8 @@ class V2ETRegisterPage extends StatefulWidget {
     required this.onLanguageTap,
     required this.onThemeToggle,
     required this.isDarkMode,
+    required this.serviceOk,
+    required this.onServiceTap,
   });
   final VoidCallback onLogin;
   final String brandName;
@@ -27,6 +29,8 @@ class V2ETRegisterPage extends StatefulWidget {
   final VoidCallback onLanguageTap;
   final VoidCallback onThemeToggle;
   final bool isDarkMode;
+  final bool serviceOk;
+  final VoidCallback onServiceTap;
 
   @override
   State<V2ETRegisterPage> createState() => _V2ETRegisterPageState();
@@ -51,7 +55,9 @@ class _V2ETRegisterPageState extends State<V2ETRegisterPage> {
           : null,
       onBack: widget.onLogin,
       onSupport: () => showV2ETCustomerServiceDialog(context),
-      showServicePill: false,
+      serviceOk: widget.serviceOk,
+      onServiceTap: widget.onServiceTap,
+      showServicePill: true,
       child: AuthGlassCard(
         width: 445,
         child: Column(

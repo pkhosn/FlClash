@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/provider_tokens.dart';
+import '../config/api_health_service.dart';
 
 /// Auth page background for login/register/reset-password.
 ///
@@ -12,6 +13,8 @@ class AuthBackground extends StatelessWidget {
     required this.child,
     this.onBack,
     this.onSupport,
+    this.onServiceTap,
+    this.serviceOk = true,
     this.showServicePill = true,
     this.backgroundImage,
     this.showMockDecoration = false,
@@ -20,6 +23,8 @@ class AuthBackground extends StatelessWidget {
   final Widget child;
   final VoidCallback? onBack;
   final VoidCallback? onSupport;
+  final VoidCallback? onServiceTap;
+  final bool serviceOk;
   final bool showServicePill;
   final ImageProvider? backgroundImage;
 
@@ -42,18 +47,45 @@ class AuthBackground extends StatelessWidget {
           Positioned(
             right: 46,
             top: 20,
-            child: Container(
-              height: 32,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(color: V2ETTokens.primarySoft, borderRadius: BorderRadius.circular(18)),
-              child: Row(
-                children: const [
-                  Icon(Icons.check_circle, color: V2ETTokens.success, size: 15),
-                  SizedBox(width: 6),
-                  Text('服务可用', style: TextStyle(color: V2ETTokens.success, fontSize: 12, fontWeight: FontWeight.w900)),
-                  SizedBox(width: 4),
-                  Icon(Icons.keyboard_arrow_down_rounded, color: V2ETTokens.success, size: 16),
-                ],
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(18),
+                onTap: onServiceTap,
+                child: Container(
+                  height: 32,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: serviceOk
+                        ? V2ETTokens.primarySoft
+                        : const Color(0xFFFFECEC),
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        serviceOk ? Icons.check_circle : Icons.error_outline,
+                        color: serviceOk ? V2ETTokens.success : Colors.red,
+                        size: 15,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        serviceOk ? '服务可用' : '服务异常',
+                        style: TextStyle(
+                          color: serviceOk ? V2ETTokens.success : Colors.red,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        color: serviceOk ? V2ETTokens.success : Colors.red,
+                        size: 16,
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
@@ -71,6 +103,76 @@ class AuthBackground extends StatelessWidget {
       ],
     );
   }
+}
+
+Future<void> showServiceProbeDialog(
+  BuildContext context, {
+  required List<ApiHealthItem> items,
+}) {
+  return showDialog(
+    context: context,
+    barrierColor: Colors.black38,
+    builder: (context) {
+      return Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: SizedBox(
+          width: 420,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'API 连通性检测',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 12),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 320),
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: items.length,
+                    separatorBuilder: (_, _) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final item = items[index];
+                      return ListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(
+                          item.ok ? Icons.check_circle : Icons.error_outline,
+                          color: item.ok ? Colors.green : Colors.red,
+                        ),
+                        title: Text(
+                          item.url,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        subtitle: Text(
+                          '${item.message}${item.latencyMs == null ? '' : ' · ${item.latencyMs}ms'}',
+                          style: const TextStyle(fontSize: 11),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('关闭'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    },
+  );
 }
 
 class _BackgroundLayer extends StatelessWidget {
