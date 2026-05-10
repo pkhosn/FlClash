@@ -12,9 +12,12 @@ import 'v2et_session_store.dart';
 /// In Stage-2 this will be bound to FlClash managers/providers
 /// and V2ET panel APIs.
 class FlClashV2etBridge implements V2etBridge {
-  FlClashV2etBridge(this._ref, {V2etPanelApi? panelApi, V2etSessionStore? sessionStore})
-    : _panelApi = panelApi ?? V2etPanelApi(),
-      _sessionStore = sessionStore ?? V2etSessionStore();
+  FlClashV2etBridge(
+    this._ref, {
+    V2etPanelApi? panelApi,
+    V2etSessionStore? sessionStore,
+  }) : _panelApi = panelApi ?? V2etPanelApi(),
+       _sessionStore = sessionStore ?? V2etSessionStore();
 
   final Ref _ref;
   final V2etPanelApi _panelApi;
@@ -44,12 +47,14 @@ class FlClashV2etBridge implements V2etBridge {
   Future<List<V2etOrder>> fetchOrders() => _fetchOrders();
 
   @override
+  Future<List<V2etNotice>> fetchNotices() => _fetchNotices();
+
+  @override
   Future<Uri> startCheckout({
     required int planId,
     required String period,
     String? couponCode,
-  }) =>
-      _startCheckout(planId: planId, period: period, couponCode: couponCode);
+  }) => _startCheckout(planId: planId, period: period, couponCode: couponCode);
 
   @override
   Future<V2etProxyMode> getProxyMode() async {
@@ -58,7 +63,9 @@ class FlClashV2etBridge implements V2etBridge {
     );
     if (tunEnabled) return V2etProxyMode.tun;
 
-    final mode = _ref.read(patchClashConfigProvider.select((state) => state.mode));
+    final mode = _ref.read(
+      patchClashConfigProvider.select((state) => state.mode),
+    );
     return switch (mode) {
       Mode.global => V2etProxyMode.global,
       _ => V2etProxyMode.smart,
@@ -66,7 +73,11 @@ class FlClashV2etBridge implements V2etBridge {
   }
 
   @override
-  Future<V2etSession> login({required Uri baseUrl, required String email, required String password}) {
+  Future<V2etSession> login({
+    required Uri baseUrl,
+    required String email,
+    required String password,
+  }) {
     return _login(baseUrl: baseUrl, email: email, password: password);
   }
 
@@ -99,31 +110,43 @@ class FlClashV2etBridge implements V2etBridge {
   Future<void> setProxyMode(V2etProxyMode mode) async {
     switch (mode) {
       case V2etProxyMode.tun:
-        _ref.read(patchClashConfigProvider.notifier).update(
-          (state) => state.copyWith(
-            mode: Mode.rule,
-            tun: state.tun.copyWith(enable: true),
-          ),
-        );
-        _ref.read(networkSettingProvider.notifier).update((state) => state.copyWith(systemProxy: false));
+        _ref
+            .read(patchClashConfigProvider.notifier)
+            .update(
+              (state) => state.copyWith(
+                mode: Mode.rule,
+                tun: state.tun.copyWith(enable: true),
+              ),
+            );
+        _ref
+            .read(networkSettingProvider.notifier)
+            .update((state) => state.copyWith(systemProxy: false));
         break;
       case V2etProxyMode.global:
-        _ref.read(patchClashConfigProvider.notifier).update(
-          (state) => state.copyWith(
-            mode: Mode.global,
-            tun: state.tun.copyWith(enable: false),
-          ),
-        );
-        _ref.read(networkSettingProvider.notifier).update((state) => state.copyWith(systemProxy: true));
+        _ref
+            .read(patchClashConfigProvider.notifier)
+            .update(
+              (state) => state.copyWith(
+                mode: Mode.global,
+                tun: state.tun.copyWith(enable: false),
+              ),
+            );
+        _ref
+            .read(networkSettingProvider.notifier)
+            .update((state) => state.copyWith(systemProxy: true));
         break;
       case V2etProxyMode.smart:
-        _ref.read(patchClashConfigProvider.notifier).update(
-          (state) => state.copyWith(
-            mode: Mode.rule,
-            tun: state.tun.copyWith(enable: false),
-          ),
-        );
-        _ref.read(networkSettingProvider.notifier).update((state) => state.copyWith(systemProxy: true));
+        _ref
+            .read(patchClashConfigProvider.notifier)
+            .update(
+              (state) => state.copyWith(
+                mode: Mode.rule,
+                tun: state.tun.copyWith(enable: false),
+              ),
+            );
+        _ref
+            .read(networkSettingProvider.notifier)
+            .update((state) => state.copyWith(systemProxy: true));
         break;
     }
 
@@ -144,7 +167,11 @@ class FlClashV2etBridge implements V2etBridge {
     required String email,
     required String password,
   }) async {
-    final token = await _panelApi.login(baseUrl: baseUrl, email: email, password: password);
+    final token = await _panelApi.login(
+      baseUrl: baseUrl,
+      email: email,
+      password: password,
+    );
     final session = V2etSession(
       baseUrl: baseUrl,
       email: email.trim(),
@@ -167,7 +194,10 @@ class FlClashV2etBridge implements V2etBridge {
 
     final payload = data['data'] is Map ? data['data'] as Map : data;
     final subscribeUrl =
-        (payload['subscribe_url'] ?? payload['subscribeUrl'] ?? payload['subscription_url'] ?? '')
+        (payload['subscribe_url'] ??
+                payload['subscribeUrl'] ??
+                payload['subscription_url'] ??
+                '')
             .toString()
             .trim();
     if (subscribeUrl.isEmpty) {
@@ -181,7 +211,9 @@ class FlClashV2etBridge implements V2etBridge {
     final transferEnable = _toInt(payload['transfer_enable']);
     final used = _toInt(payload['u']) + _toInt(payload['d']);
     final expiredAtTs = _toInt(payload['expired_at']);
-    final expiredAt = expiredAtTs > 0 ? DateTime.fromMillisecondsSinceEpoch(expiredAtTs * 1000) : null;
+    final expiredAt = expiredAtTs > 0
+        ? DateTime.fromMillisecondsSinceEpoch(expiredAtTs * 1000)
+        : null;
     return V2etSubscription(
       subscriptionUrl: subUri,
       planName: payload['plan_name']?.toString() ?? payload['plan']?.toString(),
@@ -202,21 +234,39 @@ class FlClashV2etBridge implements V2etBridge {
     if (session == null || !session.hasToken) {
       throw StateError('session not found');
     }
-    final plans = await _panelApi.fetchPlans(baseUrl: session.baseUrl, accessToken: session.accessToken);
+    final plans = await _panelApi.fetchPlans(
+      baseUrl: session.baseUrl,
+      accessToken: session.accessToken,
+    );
     final offers = <V2etStoreOffer>[];
     for (final item in plans) {
       final id = _toInt(item['id']);
       if (id <= 0) continue;
       final name = '${item['name'] ?? item['title'] ?? 'Plan'}'.trim();
       final prices = <String, double>{};
-      const keys = ['month', 'quarter', 'half_year', 'year', 'two_year', 'three_year', 'onetime', 'reset'];
+      const keys = [
+        'month',
+        'quarter',
+        'half_year',
+        'year',
+        'two_year',
+        'three_year',
+        'onetime',
+        'reset',
+      ];
       for (final key in keys) {
         final raw = item[key];
         if (raw == null) continue;
         final value = raw is num ? raw.toDouble() : double.tryParse('$raw');
         if (value != null && value > 0) prices[key] = value;
       }
-      offers.add(V2etStoreOffer(id: id, name: name.isEmpty ? 'Plan #$id' : name, prices: prices));
+      offers.add(
+        V2etStoreOffer(
+          id: id,
+          name: name.isEmpty ? 'Plan #$id' : name,
+          prices: prices,
+        ),
+      );
     }
     return offers;
   }
@@ -231,7 +281,10 @@ class FlClashV2etBridge implements V2etBridge {
       throw StateError('session not found');
     }
 
-    final orders = await _panelApi.fetchPendingOrders(baseUrl: session.baseUrl, accessToken: session.accessToken);
+    final orders = await _panelApi.fetchPendingOrders(
+      baseUrl: session.baseUrl,
+      accessToken: session.accessToken,
+    );
     for (final order in orders) {
       final status = _toInt(order['status']);
       final tradeNo = '${order['trade_no'] ?? ''}'.trim();
@@ -278,14 +331,43 @@ class FlClashV2etBridge implements V2etBridge {
       final tradeNo = '${item['trade_no'] ?? ''}'.trim();
       final status = _toInt(item['status']);
       final amountRaw = item['total_amount'] ?? item['totalAmount'] ?? 0;
-      final totalAmount = amountRaw is num ? amountRaw.toDouble() : double.tryParse('$amountRaw') ?? 0;
+      final totalAmount = amountRaw is num
+          ? amountRaw.toDouble()
+          : double.tryParse('$amountRaw') ?? 0;
       final ts = _toInt(item['created_at']);
       return V2etOrder(
         tradeNo: tradeNo,
         status: status,
         totalAmount: totalAmount,
         planName: item['plan_name']?.toString() ?? item['plan']?.toString(),
-        createdAt: ts > 0 ? DateTime.fromMillisecondsSinceEpoch(ts * 1000) : null,
+        createdAt: ts > 0
+            ? DateTime.fromMillisecondsSinceEpoch(ts * 1000)
+            : null,
+      );
+    }).toList();
+  }
+
+  Future<List<V2etNotice>> _fetchNotices() async {
+    final session = await _sessionStore.read();
+    if (session == null || !session.hasToken) {
+      throw StateError('session not found');
+    }
+    final notices = await _panelApi.fetchNotices(
+      baseUrl: session.baseUrl,
+      accessToken: session.accessToken,
+    );
+    return notices.map((item) {
+      final id = _toInt(item['id']);
+      final title = '${item['title'] ?? '公告'}'.trim();
+      final content = '${item['content'] ?? item['body'] ?? ''}'.trim();
+      final ts = _toInt(item['created_at']);
+      return V2etNotice(
+        id: id,
+        title: title.isEmpty ? '公告' : title,
+        content: content,
+        createdAt: ts > 0
+            ? DateTime.fromMillisecondsSinceEpoch(ts * 1000)
+            : null,
       );
     }).toList();
   }

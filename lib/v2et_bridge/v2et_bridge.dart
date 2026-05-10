@@ -64,6 +64,21 @@ class V2etOrder {
   final DateTime? createdAt;
 }
 
+@immutable
+class V2etNotice {
+  const V2etNotice({
+    required this.id,
+    required this.title,
+    required this.content,
+    this.createdAt,
+  });
+
+  final int id;
+  final String title;
+  final String content;
+  final DateTime? createdAt;
+}
+
 abstract class V2etAuthGateway {
   Future<V2etSession> login({
     required Uri baseUrl,
@@ -93,6 +108,10 @@ abstract class V2etStoreGateway {
   });
 }
 
+abstract class V2etNoticeGateway {
+  Future<List<V2etNotice>> fetchNotices();
+}
+
 abstract class V2etConnectivityGateway {
   Future<void> connect();
   Future<void> disconnect();
@@ -101,4 +120,9 @@ abstract class V2etConnectivityGateway {
 }
 
 abstract class V2etBridge
-    implements V2etAuthGateway, V2etSubscriptionGateway, V2etStoreGateway, V2etConnectivityGateway {}
+    implements
+        V2etAuthGateway,
+        V2etSubscriptionGateway,
+        V2etStoreGateway,
+        V2etNoticeGateway,
+        V2etConnectivityGateway {}

@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+import 'package:fl_clash/models/models.dart';
+import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/v2et_bridge/v2et_bridge_export.dart';
 import 'package:fl_clash/v2et_shell/v2et_runtime_config.dart';
 import 'package:flutter/material.dart';
@@ -384,25 +386,8 @@ class _MainShellState extends ConsumerState<_MainShell> {
   String? _loadError;
   bool _loadingData = false;
   final GlobalKey _supportKey = GlobalKey();
-  final List<_NodeGroup> _nodeGroups = const [
-    _NodeGroup('主策略', '自动选择', [
-      _NodeItem('节点tu', 990),
-      _NodeItem('新加坡A', -1),
-      _NodeItem('新加坡B', 1771),
-      _NodeItem('德国', 667),
-      _NodeItem('老古董', 237),
-    ]),
-    _NodeGroup('自动选择', '应急2号线', [
-      _NodeItem('特殊v4-v6网络A', 501),
-      _NodeItem('特殊v4-v6网络B', 493),
-      _NodeItem('特殊v4-v6网络C', -1),
-      _NodeItem('土耳其', -1),
-    ]),
-    _NodeGroup('故障转移', '平时别用', [
-      _NodeItem('土耳其-国内使用', -1),
-      _NodeItem('香港3-转发', 148),
-    ]),
-  ];
+  List<_NodeGroup> _nodeGroups = const [];
+  bool _noticeShown = false;
 
   @override
   void initState() {
@@ -425,11 +410,68 @@ class _MainShellState extends ConsumerState<_MainShell> {
       await _syncMode();
       await _loadSubscription();
       await _loadOffers();
+      _syncNodeGroupsFromCore();
+      await _showNoticeIfNeeded();
     } catch (e) {
       _loadError = '$e';
     } finally {
       if (mounted) setState(() => _loadingData = false);
     }
+  }
+
+  Future<void> _showNoticeIfNeeded() async {
+    if (_noticeShown || !mounted) return;
+    try {
+      final notices = await ref.read(v2etBridgeProvider).fetchNotices();
+      if (!mounted || notices.isEmpty) return;
+      _noticeShown = true;
+      final first = notices.first;
+      await showDialog<void>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: Text(first.title),
+          content: SingleChildScrollView(
+            child: Text(first.content.isEmpty ? '暂无公告内容' : first.content),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('关闭'),
+            ),
+          ],
+        ),
+      );
+    } catch (_) {}
+  }
+
+  void _syncNodeGroupsFromCore() {
+    final groups = ref.read(groupsProvider);
+    final delayMap = ref.read(delayDataSourceProvider);
+    final mapped = groups.map((g) {
+      final nodes = g.all.map((p) {
+        final delay = _readDelay(delayMap, g, p);
+        return _NodeItem(p.name, delay);
+      }).toList();
+      return _NodeGroup(g.name, g.type.name, nodes, current: g.realNow);
+    }).toList();
+    _nodeGroups = mapped;
+    if (_nodeGroups.isNotEmpty) {
+      _activeGroupIndex = _activeGroupIndex.clamp(0, _nodeGroups.length - 1);
+      final current = _nodeGroups[_activeGroupIndex].current;
+      if (current != null && current.isNotEmpty) {
+        _activeNodeName = current;
+      } else if (_nodeGroups[_activeGroupIndex].nodes.isNotEmpty) {
+        _activeNodeName = _nodeGroups[_activeGroupIndex].nodes.first.name;
+      }
+    }
+  }
+
+  int _readDelay(DelayMap source, Group group, Proxy proxy) {
+    final url = (group.testUrl ?? '').trim();
+    if (url.isEmpty) return -1;
+    final byUrl = source[url];
+    if (byUrl == null) return -1;
+    return byUrl[proxy.name] ?? -1;
   }
 
   Future<void> _syncMode() async {
@@ -544,7 +586,7 @@ class _MainShellState extends ConsumerState<_MainShell> {
                   children: [
                     const SizedBox(height: 10),
                     const Text(
-                      '狮子云',
+                      'V2ET',
                       style: TextStyle(
                         fontSize: 28 / 1.6,
                         fontWeight: FontWeight.w700,
@@ -847,6 +889,29 @@ class _MainShellState extends ConsumerState<_MainShell> {
   }
 
   Widget _nodePickerPopup() {
+    if (_nodeGroups.isEmpty) {
+      return Positioned.fill(
+        child: GestureDetector(
+          onTap: () => setState(() => _showNodePicker = false),
+          child: Container(
+            color: const Color(0x66000000),
+            alignment: Alignment.center,
+            child: Container(
+              width: 420,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Text(
+                '暂无可用节点分组，请先完成订阅并连接内核。',
+                style: TextStyle(color: Color(0xFF111827)),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
     final group = _nodeGroups[_activeGroupIndex];
     return Positioned.fill(
       child: GestureDetector(
@@ -964,7 +1029,7 @@ class _MainShellState extends ConsumerState<_MainShell> {
                           Row(
                             children: [
                               const Text(
-                                '狮子云shizi.pro',
+                                'V2ET',
                                 style: TextStyle(
                                   fontSize: 32 / 1.6,
                                   fontWeight: FontWeight.w800,
@@ -973,7 +1038,10 @@ class _MainShellState extends ConsumerState<_MainShell> {
                               ),
                               const Spacer(),
                               FilledButton.tonal(
-                                onPressed: () {},
+                                onPressed: () {
+                                  _syncNodeGroupsFromCore();
+                                  setState(() {});
+                                },
                                 child: const Text('全部测速'),
                               ),
                             ],
@@ -1778,10 +1846,11 @@ class _MiniBox extends StatelessWidget {
 }
 
 class _NodeGroup {
-  const _NodeGroup(this.name, this.desc, this.nodes);
+  const _NodeGroup(this.name, this.desc, this.nodes, {this.current});
   final String name;
   final String desc;
   final List<_NodeItem> nodes;
+  final String? current;
 }
 
 class _NodeItem {

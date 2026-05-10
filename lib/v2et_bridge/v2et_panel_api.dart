@@ -13,10 +13,7 @@ class V2etPanelApi {
     final loginUri = _join(baseUrl, '/api/v1/passport/auth/login');
     final response = await _dio.postUri<Map<String, dynamic>>(
       loginUri,
-      data: {
-        'email': email,
-        'password': password,
-      },
+      data: {'email': email, 'password': password},
       options: Options(
         headers: const {'Accept': 'application/json,text/plain,*/*'},
         responseType: ResponseType.json,
@@ -66,7 +63,10 @@ class V2etPanelApi {
     final body = response.data ?? const <String, dynamic>{};
     final data = body['data'];
     if (data is List) {
-      return data.whereType<Map>().map((e) => e.map((k, v) => MapEntry(k.toString(), v))).toList();
+      return data
+          .whereType<Map>()
+          .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
+          .toList();
     }
     return const [];
   }
@@ -89,7 +89,36 @@ class V2etPanelApi {
     final body = response.data ?? const <String, dynamic>{};
     final data = body['data'];
     if (data is List) {
-      return data.whereType<Map>().map((e) => e.map((k, v) => MapEntry(k.toString(), v))).toList();
+      return data
+          .whereType<Map>()
+          .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
+          .toList();
+    }
+    return const [];
+  }
+
+  Future<List<Map<String, dynamic>>> fetchNotices({
+    required Uri baseUrl,
+    required String accessToken,
+  }) async {
+    final uri = _join(baseUrl, '/api/v1/user/notice/fetch');
+    final response = await _dio.getUri<Map<String, dynamic>>(
+      uri,
+      options: Options(
+        headers: {
+          'Accept': 'application/json,text/plain,*/*',
+          'Authorization': accessToken,
+        },
+        responseType: ResponseType.json,
+      ),
+    );
+    final body = response.data ?? const <String, dynamic>{};
+    final data = body['data'];
+    if (data is List) {
+      return data
+          .whereType<Map>()
+          .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
+          .toList();
     }
     return const [];
   }
@@ -126,7 +155,8 @@ class V2etPanelApi {
       data: {
         'plan_id': planId,
         'period': period,
-        if ((couponCode ?? '').trim().isNotEmpty) 'coupon_code': couponCode!.trim(),
+        if ((couponCode ?? '').trim().isNotEmpty)
+          'coupon_code': couponCode!.trim(),
       },
       options: Options(
         headers: {
@@ -155,10 +185,7 @@ class V2etPanelApi {
     final uri = _join(baseUrl, '/api/v1/user/order/checkout');
     final response = await _dio.postUri<Map<String, dynamic>>(
       uri,
-      data: {
-        'trade_no': tradeNo,
-        'method': method,
-      },
+      data: {'trade_no': tradeNo, 'method': method},
       options: Options(
         headers: {
           'Accept': 'application/json,text/plain,*/*',
@@ -186,10 +213,7 @@ class V2etPanelApi {
     final uri = _join(baseUrl, '/api/v1/user/changePassword');
     await _dio.postUri<Map<String, dynamic>>(
       uri,
-      data: {
-        'old_password': oldPassword,
-        'new_password': newPassword,
-      },
+      data: {'old_password': oldPassword, 'new_password': newPassword},
       options: Options(
         headers: {
           'Accept': 'application/json,text/plain,*/*',
