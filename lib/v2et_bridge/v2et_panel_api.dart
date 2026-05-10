@@ -65,18 +65,11 @@ class V2etPanelApi {
     required String email,
     required String password,
     required String emailCode,
-    String? inviteCode,
   }) async {
     final uri = _join(baseUrl, '/api/v1/passport/auth/register');
     final response = await _dio.postUri<Map<String, dynamic>>(
       uri,
-      data: {
-        'email': email,
-        'password': password,
-        'email_code': emailCode,
-        if ((inviteCode ?? '').trim().isNotEmpty)
-          'invite_code': inviteCode!.trim(),
-      },
+      data: {'email': email, 'password': password, 'email_code': emailCode},
       options: Options(
         headers: const {'Accept': 'application/json,text/plain,*/*'},
         responseType: ResponseType.json,
@@ -228,6 +221,33 @@ class V2etPanelApi {
       ),
     );
     return response.data ?? const <String, dynamic>{};
+  }
+
+  Future<String> generateInviteCode({
+    required Uri baseUrl,
+    required String accessToken,
+  }) async {
+    final uri = _join(baseUrl, '/api/v1/user/invite/save');
+    final response = await _dio.getUri<Map<String, dynamic>>(
+      uri,
+      options: Options(
+        headers: {
+          'Accept': 'application/json,text/plain,*/*',
+          'Authorization': accessToken,
+        },
+        responseType: ResponseType.json,
+      ),
+    );
+    final body = response.data ?? const <String, dynamic>{};
+    final data = body['data'];
+    if (data is String && data.trim().isNotEmpty) {
+      return data.trim();
+    }
+    if (data is Map) {
+      final code = '${data['code'] ?? data['invite_code'] ?? ''}'.trim();
+      if (code.isNotEmpty) return code;
+    }
+    throw StateError('invite code missing');
   }
 
   Future<void> cancelOrder({

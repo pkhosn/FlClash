@@ -53,6 +53,9 @@ class FlClashV2etBridge implements V2etBridge {
   Future<V2etInviteData> fetchInviteData() => _fetchInviteData();
 
   @override
+  Future<String> generateInviteCode() => _generateInviteCode();
+
+  @override
   Future<Uri> startCheckout({
     required int planId,
     required String period,
@@ -135,14 +138,12 @@ class FlClashV2etBridge implements V2etBridge {
     required String email,
     required String password,
     required String emailCode,
-    String? inviteCode,
   }) async {
     final token = await _panelApi.register(
       baseUrl: baseUrl,
       email: email,
       password: password,
       emailCode: emailCode,
-      inviteCode: inviteCode,
     );
     await _sessionStore.save(
       V2etSession(baseUrl: baseUrl, email: email.trim(), accessToken: token),
@@ -459,6 +460,17 @@ class FlClashV2etBridge implements V2etBridge {
       commissionRate: commissionRate,
       inviteCount: inviteCount,
       totalCommission: totalCommission,
+    );
+  }
+
+  Future<String> _generateInviteCode() async {
+    final session = await _sessionStore.read();
+    if (session == null || !session.hasToken) {
+      throw StateError('session not found');
+    }
+    return _panelApi.generateInviteCode(
+      baseUrl: session.baseUrl,
+      accessToken: session.accessToken,
     );
   }
 

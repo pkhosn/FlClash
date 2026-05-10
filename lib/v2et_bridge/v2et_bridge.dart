@@ -123,7 +123,6 @@ abstract class V2etAuthGateway {
     required String email,
     required String password,
     required String emailCode,
-    String? inviteCode,
   });
 }
 
@@ -143,6 +142,7 @@ abstract class V2etStoreGateway {
 
 abstract class V2etInviteGateway {
   Future<V2etInviteData> fetchInviteData();
+  Future<String> generateInviteCode();
 }
 
 abstract class V2etNoticeGateway {

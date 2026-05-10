@@ -99,7 +99,6 @@ class _AuthShellState extends ConsumerState<_AuthShell> {
   final _email = TextEditingController();
   final _password = TextEditingController();
   final _emailCode = TextEditingController();
-  final _inviteCode = TextEditingController();
   final _newPassword = TextEditingController();
   Uri? _runtimeBaseUri;
   bool _loading = false;
@@ -120,7 +119,6 @@ class _AuthShellState extends ConsumerState<_AuthShell> {
     _email.dispose();
     _password.dispose();
     _emailCode.dispose();
-    _inviteCode.dispose();
     _newPassword.dispose();
     super.dispose();
   }
@@ -216,9 +214,6 @@ class _AuthShellState extends ConsumerState<_AuthShell> {
             email: _email.text.trim(),
             password: _password.text,
             emailCode: _emailCode.text.trim(),
-            inviteCode: _inviteCode.text.trim().isEmpty
-                ? null
-                : _inviteCode.text.trim(),
           );
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -344,8 +339,6 @@ class _AuthShellState extends ConsumerState<_AuthShell> {
                     ),
                     const SizedBox(height: 10),
                     _input(_emailCode, '邮箱验证码', Icons.verified_rounded),
-                    const SizedBox(height: 10),
-                    _input(_inviteCode, '邀请码（可选）', Icons.card_giftcard_rounded),
                     const SizedBox(height: 10),
                     _solidBtn(
                       _loading ? '发送中...' : '发送验证码',
