@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:fl_clash/core/core.dart';
 import 'package:fl_clash/controller.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/providers.dart';
@@ -386,6 +387,7 @@ class _MainShellState extends ConsumerState<_MainShell> {
   final TextEditingController _statusQueryCtrl = TextEditingController();
   String? _loadError;
   bool _loadingData = false;
+  bool _delayTesting = false;
   final GlobalKey _supportKey = GlobalKey();
   List<_NodeGroup> _nodeGroups = const [];
   bool _noticeShown = false;
@@ -482,6 +484,31 @@ class _MainShellState extends ConsumerState<_MainShell> {
         .where((e) => e.name == _activeNodeName)
         .firstOrNull;
     return node?.delay ?? -1;
+  }
+
+  Future<void> _runCurrentGroupDelayTest() async {
+    if (_nodeGroups.isEmpty) return;
+    final groups = ref.read(groupsProvider);
+    if (_activeGroupIndex < 0 || _activeGroupIndex >= groups.length) return;
+    final group = groups[_activeGroupIndex];
+    final url = (group.testUrl ?? '').trim();
+    if (url.isEmpty) {
+      appController.updateGroupsDebounce();
+      return;
+    }
+    for (final proxy in group.all) {
+      final name = proxy.name.trim();
+      if (name.isEmpty) continue;
+      appController.setDelay(Delay(url: url, name: name, value: 0));
+      try {
+        final delay = await coreController.getDelay(url, name);
+        appController.setDelay(delay);
+      } catch (_) {
+        appController.setDelay(Delay(url: url, name: name, value: -1));
+      }
+    }
+    _syncNodeGroupsFromCore();
+    if (mounted) setState(() {});
   }
 
   Future<void> _syncMode() async {
@@ -1064,15 +1091,21 @@ class _MainShellState extends ConsumerState<_MainShell> {
                               ),
                               const Spacer(),
                               FilledButton.tonal(
-                                onPressed: () async {
-                                  await appController.updateGroups();
-                                  await Future<void>.delayed(
-                                    const Duration(milliseconds: 220),
-                                  );
-                                  _syncNodeGroupsFromCore();
-                                  if (mounted) setState(() {});
-                                },
-                                child: const Text('全部测速'),
+                                onPressed: _delayTesting
+                                    ? null
+                                    : () async {
+                                        setState(() => _delayTesting = true);
+                                        try {
+                                          await _runCurrentGroupDelayTest();
+                                        } finally {
+                                          if (mounted) {
+                                            setState(
+                                              () => _delayTesting = false,
+                                            );
+                                          }
+                                        }
+                                      },
+                                child: Text(_delayTesting ? '测速中...' : '全部测速'),
                               ),
                             ],
                           ),
