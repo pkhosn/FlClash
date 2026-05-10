@@ -102,6 +102,54 @@ class FlClashV2etBridge implements V2etBridge {
   }
 
   @override
+  Future<void> sendEmailVerify({
+    required Uri baseUrl,
+    required String email,
+    required bool isForgetPassword,
+  }) async {
+    await _panelApi.sendEmailVerify(
+      baseUrl: baseUrl,
+      email: email,
+      isForgetPassword: isForgetPassword,
+    );
+  }
+
+  @override
+  Future<void> resetPassword({
+    required Uri baseUrl,
+    required String email,
+    required String password,
+    required String emailCode,
+  }) async {
+    await _panelApi.resetPassword(
+      baseUrl: baseUrl,
+      email: email,
+      password: password,
+      emailCode: emailCode,
+    );
+  }
+
+  @override
+  Future<void> register({
+    required Uri baseUrl,
+    required String email,
+    required String password,
+    required String emailCode,
+    String? inviteCode,
+  }) async {
+    final token = await _panelApi.register(
+      baseUrl: baseUrl,
+      email: email,
+      password: password,
+      emailCode: emailCode,
+      inviteCode: inviteCode,
+    );
+    await _sessionStore.save(
+      V2etSession(baseUrl: baseUrl, email: email.trim(), accessToken: token),
+    );
+  }
+
+  @override
   Future<void> logout() async {
     await _sessionStore.clear();
   }

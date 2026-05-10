@@ -107,6 +107,24 @@ abstract class V2etAuthGateway {
     required String oldPassword,
     required String newPassword,
   });
+  Future<void> sendEmailVerify({
+    required Uri baseUrl,
+    required String email,
+    required bool isForgetPassword,
+  });
+  Future<void> resetPassword({
+    required Uri baseUrl,
+    required String email,
+    required String password,
+    required String emailCode,
+  });
+  Future<void> register({
+    required Uri baseUrl,
+    required String email,
+    required String password,
+    required String emailCode,
+    String? inviteCode,
+  });
 }
 
 abstract class V2etSubscriptionGateway {

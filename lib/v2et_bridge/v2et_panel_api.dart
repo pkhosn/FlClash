@@ -27,6 +27,69 @@ class V2etPanelApi {
     return token;
   }
 
+  Future<void> sendEmailVerify({
+    required Uri baseUrl,
+    required String email,
+    required bool isForgetPassword,
+  }) async {
+    final uri = _join(baseUrl, '/api/v1/passport/comm/sendEmailVerify');
+    await _dio.postUri<Map<String, dynamic>>(
+      uri,
+      data: {'email': email, 'isForgetPassword': isForgetPassword ? 1 : 0},
+      options: Options(
+        headers: const {'Accept': 'application/json,text/plain,*/*'},
+        responseType: ResponseType.json,
+      ),
+    );
+  }
+
+  Future<void> resetPassword({
+    required Uri baseUrl,
+    required String email,
+    required String password,
+    required String emailCode,
+  }) async {
+    final uri = _join(baseUrl, '/api/v1/passport/auth/forget');
+    await _dio.postUri<Map<String, dynamic>>(
+      uri,
+      data: {'email': email, 'password': password, 'email_code': emailCode},
+      options: Options(
+        headers: const {'Accept': 'application/json,text/plain,*/*'},
+        responseType: ResponseType.json,
+      ),
+    );
+  }
+
+  Future<String> register({
+    required Uri baseUrl,
+    required String email,
+    required String password,
+    required String emailCode,
+    String? inviteCode,
+  }) async {
+    final uri = _join(baseUrl, '/api/v1/passport/auth/register');
+    final response = await _dio.postUri<Map<String, dynamic>>(
+      uri,
+      data: {
+        'email': email,
+        'password': password,
+        'email_code': emailCode,
+        if ((inviteCode ?? '').trim().isNotEmpty)
+          'invite_code': inviteCode!.trim(),
+      },
+      options: Options(
+        headers: const {'Accept': 'application/json,text/plain,*/*'},
+        responseType: ResponseType.json,
+      ),
+    );
+    final body = response.data ?? const <String, dynamic>{};
+    final token = _readToken(body);
+    if (token == null || token.isEmpty) {
+      throw StateError('register success but token is empty');
+    }
+    return token;
+  }
+
   Future<Map<String, dynamic>> fetchSubscription({
     required Uri baseUrl,
     required String accessToken,

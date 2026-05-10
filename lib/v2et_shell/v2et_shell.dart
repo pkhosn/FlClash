@@ -98,6 +98,9 @@ class _AuthShellState extends ConsumerState<_AuthShell> {
   _AuthTab _tab = _AuthTab.login;
   final _email = TextEditingController();
   final _password = TextEditingController();
+  final _emailCode = TextEditingController();
+  final _inviteCode = TextEditingController();
+  final _newPassword = TextEditingController();
   Uri? _runtimeBaseUri;
   bool _loading = false;
   String? _error;
@@ -116,6 +119,9 @@ class _AuthShellState extends ConsumerState<_AuthShell> {
   void dispose() {
     _email.dispose();
     _password.dispose();
+    _emailCode.dispose();
+    _inviteCode.dispose();
+    _newPassword.dispose();
     super.dispose();
   }
 
@@ -144,6 +150,119 @@ class _AuthShellState extends ConsumerState<_AuthShell> {
           );
       if (!mounted) return;
       widget.onLogin(session);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = '$e');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _sendEmailVerify({required bool isForgetPassword}) async {
+    final baseUri = _runtimeBaseUri;
+    if (baseUri == null || !baseUri.hasScheme) {
+      setState(() => _error = '配置错误：未找到可用 API 地址');
+      return;
+    }
+    if (_email.text.trim().isEmpty) {
+      setState(() => _error = '请输入邮箱');
+      return;
+    }
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      await ref
+          .read(v2etBridgeProvider)
+          .sendEmailVerify(
+            baseUrl: baseUri,
+            email: _email.text.trim(),
+            isForgetPassword: isForgetPassword,
+          );
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('验证码已发送')));
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = '$e');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _submitRegister() async {
+    final baseUri = _runtimeBaseUri;
+    if (baseUri == null || !baseUri.hasScheme) {
+      setState(() => _error = '配置错误：未找到可用 API 地址');
+      return;
+    }
+    if (_email.text.trim().isEmpty ||
+        _password.text.isEmpty ||
+        _emailCode.text.trim().isEmpty) {
+      setState(() => _error = '请完整填写邮箱/密码/验证码');
+      return;
+    }
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      await ref
+          .read(v2etBridgeProvider)
+          .register(
+            baseUrl: baseUri,
+            email: _email.text.trim(),
+            password: _password.text,
+            emailCode: _emailCode.text.trim(),
+            inviteCode: _inviteCode.text.trim().isEmpty
+                ? null
+                : _inviteCode.text.trim(),
+          );
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('注册成功，请返回登录')));
+      setState(() => _tab = _AuthTab.login);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = '$e');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _submitResetPassword() async {
+    final baseUri = _runtimeBaseUri;
+    if (baseUri == null || !baseUri.hasScheme) {
+      setState(() => _error = '配置错误：未找到可用 API 地址');
+      return;
+    }
+    if (_email.text.trim().isEmpty ||
+        _newPassword.text.isEmpty ||
+        _emailCode.text.trim().isEmpty) {
+      setState(() => _error = '请完整填写邮箱/新密码/验证码');
+      return;
+    }
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      await ref
+          .read(v2etBridgeProvider)
+          .resetPassword(
+            baseUrl: baseUri,
+            email: _email.text.trim(),
+            password: _newPassword.text,
+            emailCode: _emailCode.text.trim(),
+          );
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('密码重置成功，请登录')));
+      setState(() => _tab = _AuthTab.login);
     } catch (e) {
       if (!mounted) return;
       setState(() => _error = '$e');
@@ -224,11 +343,21 @@ class _AuthShellState extends ConsumerState<_AuthShell> {
                       obscure: true,
                     ),
                     const SizedBox(height: 10),
-                    _solidBtn('注册（未开放）', () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('当前客户端仅开放登录，注册请前往官网')),
-                      );
-                    }),
+                    _input(_emailCode, '邮箱验证码', Icons.verified_rounded),
+                    const SizedBox(height: 10),
+                    _input(_inviteCode, '邀请码（可选）', Icons.card_giftcard_rounded),
+                    const SizedBox(height: 10),
+                    _solidBtn(
+                      _loading ? '发送中...' : '发送验证码',
+                      _loading
+                          ? null
+                          : () => _sendEmailVerify(isForgetPassword: false),
+                    ),
+                    const SizedBox(height: 10),
+                    _solidBtn(
+                      _loading ? '注册中...' : '注册',
+                      _loading ? null : _submitRegister,
+                    ),
                     const SizedBox(height: 10),
                     _switchRow(
                       '已有账户? 立即登录',
@@ -239,11 +368,26 @@ class _AuthShellState extends ConsumerState<_AuthShell> {
                   ] else ...[
                     _input(_email, '请输入邮箱地址', Icons.mail_outline_rounded),
                     const SizedBox(height: 10),
-                    _solidBtn('发送验证码（未开放）', () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('当前客户端仅开放登录，重置密码请前往官网')),
-                      );
-                    }),
+                    _input(
+                      _newPassword,
+                      '请输入新密码',
+                      Icons.lock_reset_rounded,
+                      obscure: true,
+                    ),
+                    const SizedBox(height: 10),
+                    _input(_emailCode, '邮箱验证码', Icons.verified_rounded),
+                    const SizedBox(height: 10),
+                    _solidBtn(
+                      _loading ? '发送中...' : '发送验证码',
+                      _loading
+                          ? null
+                          : () => _sendEmailVerify(isForgetPassword: true),
+                    ),
+                    const SizedBox(height: 10),
+                    _solidBtn(
+                      _loading ? '重置中...' : '确认重置',
+                      _loading ? null : _submitResetPassword,
+                    ),
                     const SizedBox(height: 10),
                     _switchRow(
                       '记起密码了？ 返回登录',
