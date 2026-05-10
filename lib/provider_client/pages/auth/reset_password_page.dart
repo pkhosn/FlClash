@@ -11,10 +11,18 @@ class V2ETResetPasswordPage extends StatelessWidget {
     required this.onLogin,
     required this.authBackgroundUrl,
     required this.crispWebsiteId,
+    required this.languageCode,
+    required this.onLanguageTap,
+    required this.onThemeToggle,
+    required this.isDarkMode,
   });
   final VoidCallback onLogin;
   final String authBackgroundUrl;
   final String crispWebsiteId;
+  final String languageCode;
+  final VoidCallback onLanguageTap;
+  final VoidCallback onThemeToggle;
+  final bool isDarkMode;
 
   @override
   Widget build(BuildContext context) {
@@ -35,18 +43,25 @@ class V2ETResetPasswordPage extends StatelessWidget {
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
-              children: const [
+              children: [
                 AuthToolButton(
+                  onTap: onThemeToggle,
                   child: Icon(
-                    Icons.wb_sunny_outlined,
+                    isDarkMode
+                        ? Icons.nightlight_round
+                        : Icons.wb_sunny_outlined,
                     color: V2ETTokens.textPrimary,
                   ),
                 ),
-                SizedBox(width: 8),
+                const SizedBox(width: 8),
                 AuthToolButton(
+                  onTap: onLanguageTap,
                   child: Text(
-                    '中',
-                    style: TextStyle(fontWeight: FontWeight.w900),
+                    _languageLabel(languageCode),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w900,
+                      color: V2ETTokens.textPrimary,
+                    ),
                   ),
                 ),
               ],
@@ -127,5 +142,12 @@ class V2ETResetPasswordPage extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String _languageLabel(String code) {
+    final lower = code.toLowerCase();
+    if (lower.startsWith('zh')) return '中';
+    if (lower.startsWith('en')) return 'EN';
+    return code.length <= 4 ? code.toUpperCase() : code.substring(0, 4);
   }
 }

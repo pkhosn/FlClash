@@ -15,23 +15,48 @@ class V2ETLoginPage extends StatefulWidget {
     required this.logoUrl,
     required this.authBackgroundUrl,
     required this.crispWebsiteId,
+    required this.versionText,
+    required this.languageCode,
+    required this.onLanguageTap,
+    required this.onThemeToggle,
+    required this.isDarkMode,
+    this.initialEmail = '',
+    this.initialPassword = '',
+    this.initialRemember = false,
   });
-  final Future<void> Function(String email, String password) onLogin;
+  final Future<void> Function(String email, String password, bool remember)
+  onLogin;
   final VoidCallback onRegister;
   final VoidCallback onResetPassword;
   final String brandName;
   final String logoUrl;
   final String authBackgroundUrl;
   final String crispWebsiteId;
+  final String versionText;
+  final String languageCode;
+  final VoidCallback onLanguageTap;
+  final VoidCallback onThemeToggle;
+  final bool isDarkMode;
+  final String initialEmail;
+  final String initialPassword;
+  final bool initialRemember;
 
   @override
   State<V2ETLoginPage> createState() => _V2ETLoginPageState();
 }
 
 class _V2ETLoginPageState extends State<V2ETLoginPage> {
-  bool remember = true;
+  bool remember = false;
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    remember = widget.initialRemember;
+    _emailController.text = widget.initialEmail;
+    _passwordController.text = widget.initialPassword;
+  }
 
   @override
   void dispose() {
@@ -56,18 +81,25 @@ class _V2ETLoginPageState extends State<V2ETLoginPage> {
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
-              children: const [
+              children: [
                 AuthToolButton(
+                  onTap: widget.onThemeToggle,
                   child: Icon(
-                    Icons.wb_sunny_outlined,
+                    widget.isDarkMode
+                        ? Icons.nightlight_round
+                        : Icons.wb_sunny_outlined,
                     color: V2ETTokens.textPrimary,
                   ),
                 ),
-                SizedBox(width: 8),
+                const SizedBox(width: 8),
                 AuthToolButton(
+                  onTap: widget.onLanguageTap,
                   child: Text(
-                    '中',
-                    style: TextStyle(fontWeight: FontWeight.w900),
+                    _languageLabel(widget.languageCode),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w900,
+                      color: V2ETTokens.textPrimary,
+                    ),
                   ),
                 ),
               ],
@@ -138,7 +170,7 @@ class _V2ETLoginPageState extends State<V2ETLoginPage> {
                 final email = _emailController.text.trim();
                 final password = _passwordController.text;
                 if (email.isEmpty || password.isEmpty) return;
-                widget.onLogin(email, password);
+                widget.onLogin(email, password, remember);
               },
             ),
             const SizedBox(height: 28),
@@ -178,9 +210,9 @@ class _V2ETLoginPageState extends State<V2ETLoginPage> {
               ],
             ),
             const SizedBox(height: 6),
-            const Text(
-              'v1.0.2',
-              style: TextStyle(
+            Text(
+              widget.versionText,
+              style: const TextStyle(
                 fontSize: 12,
                 color: V2ETTokens.textMuted,
                 fontWeight: FontWeight.w700,
@@ -218,5 +250,12 @@ class _V2ETLoginPageState extends State<V2ETLoginPage> {
       ),
       child: const Icon(Icons.pets_rounded, color: Colors.white, size: 42),
     );
+  }
+
+  String _languageLabel(String code) {
+    final lower = code.toLowerCase();
+    if (lower.startsWith('zh')) return '中';
+    if (lower.startsWith('en')) return 'EN';
+    return code.length <= 4 ? code.toUpperCase() : code.substring(0, 4);
   }
 }

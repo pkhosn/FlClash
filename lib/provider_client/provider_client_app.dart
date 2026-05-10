@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_clash/controller.dart';
+import 'package:fl_clash/common/preferences.dart';
 import 'package:fl_clash/models/models.dart';
+import 'package:fl_clash/providers/config.dart';
 import 'package:fl_clash/v2et_bridge/v2et_bridge_provider.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'config/remote_config_provider.dart';
+import 'config/app_config_model.dart';
+import 'config/auth_bootstrap_service.dart';
 import 'theme/provider_theme.dart';
 import 'theme/provider_tokens.dart';
 import 'app_shell/provider_client_page.dart';
@@ -43,15 +48,54 @@ class V2ETAuthGate extends ConsumerStatefulWidget {
 }
 
 class _V2ETAuthGateState extends ConsumerState<V2ETAuthGate> {
+  static const _rememberKey = 'v2et_remember_me';
+  static const _rememberEmailKey = 'v2et_remember_email';
+  static const _rememberPasswordKey = 'v2et_remember_password';
+
   String page = 'login';
   bool loggedIn = false;
   bool loggingIn = false;
   String? loginError;
+  bool rememberMe = false;
+  String rememberedEmail = '';
+  String rememberedPassword = '';
+  bool _restoredOnce = false;
+  String _packageVersionText = 'v0.0.0';
+  List<String> _emailSuffixes = const ['qq.com'];
+  List<String> _languageCodes = const ['zh-CN', 'en-US'];
+  String _languageCode = 'zh-CN';
+
+  bool get _isDarkMode {
+    final mode = ref.read(themeSettingProvider).themeMode;
+    return switch (mode) {
+      ThemeMode.dark => true,
+      ThemeMode.light => false,
+      ThemeMode.system => WidgetsBinding
+              .instance.platformDispatcher.platformBrightness ==
+          Brightness.dark,
+    };
+  }
 
   @override
   void initState() {
     super.initState();
-    Future.microtask(() => ref.read(appConfigProvider.notifier).loadConfig());
+    Future.microtask(() async {
+      ref.read(appConfigProvider.notifier).loadConfig();
+      await _loadPackageVersion();
+      await _loadAuthBootstrap();
+      await _restoreRememberedLogin();
+      if (mounted) setState(() {});
+      if (rememberMe &&
+          rememberedEmail.isNotEmpty &&
+          rememberedPassword.isNotEmpty) {
+        await _handleLogin(
+          rememberedEmail,
+          rememberedPassword,
+          true,
+          silent: true,
+        );
+      }
+    });
   }
 
   @override
@@ -76,22 +120,40 @@ class _V2ETAuthGateState extends ConsumerState<V2ETAuthGate> {
         brandName: appConfig.brandName,
         logoUrl: appConfig.logoUrl,
         authBackgroundUrl: appConfig.authBackgroundUrl,
+        emailSuffixes: _emailSuffixes,
+        languageCode: _languageCode,
+        onLanguageTap: _cycleLanguage,
+        onThemeToggle: _toggleThemeMode,
+        isDarkMode: _isDarkMode,
       );
     } else if (page == 'reset') {
       body = V2ETResetPasswordPage(
         onLogin: () => setState(() => page = 'login'),
         authBackgroundUrl: appConfig.authBackgroundUrl,
         crispWebsiteId: appConfig.crispWebsiteId,
+        languageCode: _languageCode,
+        onLanguageTap: _cycleLanguage,
+        onThemeToggle: _toggleThemeMode,
+        isDarkMode: _isDarkMode,
       );
     } else {
       body = V2ETLoginPage(
-        onLogin: (email, password) => _handleLogin(email, password),
+        onLogin: (email, password, remember) =>
+            _handleLogin(email, password, remember),
         onRegister: () => setState(() => page = 'register'),
         onResetPassword: () => setState(() => page = 'reset'),
         brandName: appConfig.brandName,
         logoUrl: appConfig.logoUrl,
         authBackgroundUrl: appConfig.authBackgroundUrl,
         crispWebsiteId: appConfig.crispWebsiteId,
+        versionText: _resolveVersionText(appConfig),
+        languageCode: _languageCode,
+        onLanguageTap: _cycleLanguage,
+        onThemeToggle: _toggleThemeMode,
+        isDarkMode: _isDarkMode,
+        initialEmail: rememberedEmail,
+        initialPassword: rememberedPassword,
+        initialRemember: rememberMe,
       );
     }
 
@@ -137,7 +199,12 @@ class _V2ETAuthGateState extends ConsumerState<V2ETAuthGate> {
     );
   }
 
-  Future<void> _handleLogin(String email, String password) async {
+  Future<void> _handleLogin(
+    String email,
+    String password,
+    bool remember, {
+    bool silent = false,
+  }) async {
     final appConfig = ref.read(appConfigProvider);
     final baseUrl = Uri.tryParse(appConfig.apiUrl.trim());
     if (baseUrl == null || !baseUrl.hasScheme) {
@@ -147,10 +214,12 @@ class _V2ETAuthGateState extends ConsumerState<V2ETAuthGate> {
       return;
     }
 
-    setState(() {
-      loggingIn = true;
-      loginError = null;
-    });
+    if (!silent) {
+      setState(() {
+        loggingIn = true;
+        loginError = null;
+      });
+    }
     try {
       final bridge = ref.read(v2etBridgeProvider);
       await bridge.login(baseUrl: baseUrl, email: email, password: password);
@@ -162,6 +231,11 @@ class _V2ETAuthGateState extends ConsumerState<V2ETAuthGate> {
       ).update();
       appController.putProfile(profile);
       await appController.updateStatus(true);
+      await _saveRememberedLogin(
+        remember: remember,
+        email: email,
+        password: password,
+      );
 
       if (!mounted) return;
       setState(() {
@@ -173,12 +247,102 @@ class _V2ETAuthGateState extends ConsumerState<V2ETAuthGate> {
         loginError = '登录失败: $e';
       });
     } finally {
-      if (mounted) {
+      if (mounted && !silent) {
         setState(() {
           loggingIn = false;
         });
       }
     }
+  }
+
+  Future<void> _restoreRememberedLogin() async {
+    if (_restoredOnce) return;
+    _restoredOnce = true;
+    final sp = await preferences.sharedPreferencesCompleter.future;
+    if (sp == null) return;
+    rememberMe = sp.getBool(_rememberKey) ?? false;
+    rememberedEmail = sp.getString(_rememberEmailKey) ?? '';
+    rememberedPassword = sp.getString(_rememberPasswordKey) ?? '';
+    if (!rememberMe) {
+      rememberedEmail = '';
+      rememberedPassword = '';
+    }
+  }
+
+  Future<void> _saveRememberedLogin({
+    required bool remember,
+    required String email,
+    required String password,
+  }) async {
+    final sp = await preferences.sharedPreferencesCompleter.future;
+    if (sp == null) return;
+    rememberMe = remember;
+    if (remember) {
+      rememberedEmail = email.trim();
+      rememberedPassword = password;
+      await sp.setBool(_rememberKey, true);
+      await sp.setString(_rememberEmailKey, rememberedEmail);
+      await sp.setString(_rememberPasswordKey, rememberedPassword);
+    } else {
+      rememberedEmail = '';
+      rememberedPassword = '';
+      await sp.setBool(_rememberKey, false);
+      await sp.remove(_rememberEmailKey);
+      await sp.remove(_rememberPasswordKey);
+    }
+  }
+
+  Future<void> _loadPackageVersion() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      final name = info.version.trim();
+      final build = info.buildNumber.trim();
+      final composed = build.isEmpty ? name : '$name+$build';
+      _packageVersionText = composed.isEmpty ? 'v0.0.0' : 'v$composed';
+    } catch (_) {
+      _packageVersionText = 'v0.0.0';
+    }
+  }
+
+  Future<void> _loadAuthBootstrap() async {
+    final appConfig = ref.read(appConfigProvider);
+    final baseUrl = Uri.tryParse(appConfig.apiUrl.trim());
+    if (baseUrl == null || !baseUrl.hasScheme) return;
+    try {
+      final data = await AuthBootstrapService().fetch(baseUrl);
+      _emailSuffixes = data.emailSuffixes;
+      _languageCodes = data.languages;
+      if (_languageCodes.isNotEmpty &&
+          !_languageCodes.contains(_languageCode)) {
+        _languageCode = _languageCodes.first;
+      }
+    } catch (_) {}
+  }
+
+  void _cycleLanguage() {
+    if (_languageCodes.isEmpty) return;
+    final index = _languageCodes.indexOf(_languageCode);
+    final next = (index + 1) % _languageCodes.length;
+    final nextCode = _languageCodes[next];
+    setState(() => _languageCode = nextCode);
+    ref.read(appSettingProvider.notifier).update(
+      (state) => state.copyWith(locale: nextCode),
+    );
+  }
+
+  void _toggleThemeMode() {
+    ref.read(themeSettingProvider.notifier).update((state) {
+      final current = state.themeMode;
+      final next = current == ThemeMode.dark ? ThemeMode.light : ThemeMode.dark;
+      return state.copyWith(themeMode: next);
+    });
+    if (mounted) setState(() {});
+  }
+
+  String _resolveVersionText(AppConfig appConfig) {
+    final configVersion = appConfig.versionText.trim();
+    if (configVersion.isNotEmpty) return configVersion;
+    return _packageVersionText;
   }
 }
 

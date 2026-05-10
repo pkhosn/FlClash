@@ -5,26 +5,51 @@ import '../../widgets/app_input.dart';
 import '../../widgets/auth_background.dart';
 import '../dashboard/customer_service_dialog.dart';
 
-class V2ETRegisterPage extends StatelessWidget {
+class V2ETRegisterPage extends StatefulWidget {
   const V2ETRegisterPage({
     super.key,
     required this.onLogin,
     required this.brandName,
     required this.logoUrl,
     required this.authBackgroundUrl,
+    required this.emailSuffixes,
+    required this.languageCode,
+    required this.onLanguageTap,
+    required this.onThemeToggle,
+    required this.isDarkMode,
   });
   final VoidCallback onLogin;
   final String brandName;
   final String logoUrl;
   final String authBackgroundUrl;
+  final List<String> emailSuffixes;
+  final String languageCode;
+  final VoidCallback onLanguageTap;
+  final VoidCallback onThemeToggle;
+  final bool isDarkMode;
+
+  @override
+  State<V2ETRegisterPage> createState() => _V2ETRegisterPageState();
+}
+
+class _V2ETRegisterPageState extends State<V2ETRegisterPage> {
+  late String selectedSuffix;
+
+  @override
+  void initState() {
+    super.initState();
+    selectedSuffix = widget.emailSuffixes.isEmpty
+        ? 'qq.com'
+        : widget.emailSuffixes.first;
+  }
 
   @override
   Widget build(BuildContext context) {
     return AuthBackground(
-      backgroundImage: authBackgroundUrl.isNotEmpty
-          ? NetworkImage(authBackgroundUrl)
+      backgroundImage: widget.authBackgroundUrl.isNotEmpty
+          ? NetworkImage(widget.authBackgroundUrl)
           : null,
-      onBack: onLogin,
+      onBack: widget.onLogin,
       onSupport: () => showV2ETCustomerServiceDialog(context),
       showServicePill: false,
       child: AuthGlassCard(
@@ -34,18 +59,25 @@ class V2ETRegisterPage extends StatelessWidget {
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
-              children: const [
+              children: [
                 AuthToolButton(
+                  onTap: widget.onThemeToggle,
                   child: Icon(
-                    Icons.wb_sunny_outlined,
+                    widget.isDarkMode
+                        ? Icons.nightlight_round
+                        : Icons.wb_sunny_outlined,
                     color: V2ETTokens.textPrimary,
                   ),
                 ),
-                SizedBox(width: 8),
+                const SizedBox(width: 8),
                 AuthToolButton(
+                  onTap: widget.onLanguageTap,
                   child: Text(
-                    '中',
-                    style: TextStyle(fontWeight: FontWeight.w900),
+                    _languageLabel(widget.languageCode),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w900,
+                      color: V2ETTokens.textPrimary,
+                    ),
                   ),
                 ),
               ],
@@ -65,7 +97,7 @@ class V2ETRegisterPage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 22),
-            Text('创建账户 - $brandName', style: V2ETTokens.h1),
+            Text('创建账户 - ${widget.brandName}', style: V2ETTokens.h1),
             const SizedBox(height: 8),
             const Text('填写以下信息完成注册', style: V2ETTokens.small),
             const SizedBox(height: 26),
@@ -79,7 +111,23 @@ class V2ETRegisterPage extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Container(
+                PopupMenuButton<String>(
+                  initialValue: selectedSuffix,
+                  onSelected: (v) => setState(() => selectedSuffix = v),
+                  itemBuilder: (context) {
+                    final items = widget.emailSuffixes.isEmpty
+                        ? const ['qq.com']
+                        : widget.emailSuffixes;
+                    return items
+                        .map(
+                          (e) => PopupMenuItem<String>(
+                            value: e,
+                            child: Text(e),
+                          ),
+                        )
+                        .toList();
+                  },
+                  child: Container(
                   height: 40,
                   width: 138,
                   padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -88,19 +136,23 @@ class V2ETRegisterPage extends StatelessWidget {
                     borderRadius: BorderRadius.circular(V2ETTokens.radiusM),
                     border: Border.all(color: V2ETTokens.border),
                   ),
-                  child: const Row(
+                  child: Row(
                     children: [
-                      Text('@', style: TextStyle(fontWeight: FontWeight.w800)),
-                      SizedBox(width: 8),
+                      const Text(
+                        '@',
+                        style: TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                      const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'qq.com',
-                          style: TextStyle(fontWeight: FontWeight.w800),
+                          selectedSuffix,
+                          style: const TextStyle(fontWeight: FontWeight.w800),
                         ),
                       ),
-                      Icon(Icons.keyboard_arrow_down_rounded),
+                      const Icon(Icons.keyboard_arrow_down_rounded),
                     ],
                   ),
+                ),
                 ),
               ],
             ),
@@ -176,7 +228,7 @@ class V2ETRegisterPage extends StatelessWidget {
                   ),
                 ),
                 TextButton(
-                  onPressed: onLogin,
+                  onPressed: widget.onLogin,
                   child: const Text(
                     '立即登录',
                     style: TextStyle(
@@ -192,5 +244,12 @@ class V2ETRegisterPage extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String _languageLabel(String code) {
+    final lower = code.toLowerCase();
+    if (lower.startsWith('zh')) return '中';
+    if (lower.startsWith('en')) return 'EN';
+    return code.length <= 4 ? code.toUpperCase() : code.substring(0, 4);
   }
 }
