@@ -381,6 +381,7 @@ class _MainShellState extends ConsumerState<_MainShell> {
   V2etProxyMode _mode = V2etProxyMode.smart;
   V2etSubscription? _subscription;
   List<V2etStoreOffer> _offers = const [];
+  V2etInviteData? _inviteData;
   bool _busy = false;
   bool _connected = false;
   bool _showSupport = false;
@@ -416,6 +417,7 @@ class _MainShellState extends ConsumerState<_MainShell> {
       await _syncMode();
       await _loadSubscription();
       await _loadOffers();
+      await _loadInviteData();
       _syncNodeGroupsFromCore();
       await _showNoticeIfNeeded();
     } catch (e) {
@@ -537,6 +539,15 @@ class _MainShellState extends ConsumerState<_MainShell> {
     }
   }
 
+  Future<void> _loadInviteData() async {
+    try {
+      _inviteData = await ref.read(v2etBridgeProvider).fetchInviteData();
+      if (mounted) setState(() {});
+    } catch (e) {
+      _loadError = '$e';
+    }
+  }
+
   Future<void> _connectToggle() async {
     if (_busy) return;
     setState(() => _busy = true);
@@ -601,8 +612,10 @@ class _MainShellState extends ConsumerState<_MainShell> {
   }
 
   String _inviteCodeText() {
+    final first = _inviteData?.codes.firstOrNull;
+    if (first != null && first.trim().isNotEmpty) return first.trim();
     final raw = (widget.runtime.inviteManageUrl ?? '').trim();
-    if (raw.isEmpty) return '未配置邀请链接';
+    if (raw.isEmpty) return '暂无邀请码';
     final uri = Uri.tryParse(raw);
     if (uri == null) return '邀请链接已配置';
     final code = uri.queryParameters['code'];
@@ -1332,6 +1345,15 @@ class _MainShellState extends ConsumerState<_MainShell> {
                 ),
               ),
               const SizedBox(height: 10),
+              Align(
+                alignment: Alignment.centerRight,
+                child: OutlinedButton.icon(
+                  onPressed: _loadInviteData,
+                  icon: const Icon(Icons.refresh_rounded, size: 16),
+                  label: const Text('刷新'),
+                ),
+              ),
+              const SizedBox(height: 8),
               Container(
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
@@ -1370,12 +1392,18 @@ class _MainShellState extends ConsumerState<_MainShell> {
         ),
         const SizedBox(height: 12),
         _card(
-          child: const Row(
+          child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _StatItem('总邀请数', '0'),
-              _StatItem('佣金比例', '10.0%'),
-              _StatItem('累计佣金', '¥0.00'),
+              _StatItem('总邀请数', '${_inviteData?.inviteCount ?? 0}'),
+              _StatItem(
+                '佣金比例',
+                '${((_inviteData?.commissionRate ?? 0) * 100).toStringAsFixed(1)}%',
+              ),
+              _StatItem(
+                '累计佣金',
+                '¥${(_inviteData?.totalCommission ?? 0).toStringAsFixed(2)}',
+              ),
             ],
           ),
         ),

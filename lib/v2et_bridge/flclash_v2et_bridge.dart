@@ -50,6 +50,9 @@ class FlClashV2etBridge implements V2etBridge {
   Future<List<V2etNotice>> fetchNotices() => _fetchNotices();
 
   @override
+  Future<V2etInviteData> fetchInviteData() => _fetchInviteData();
+
+  @override
   Future<Uri> startCheckout({
     required int planId,
     required String period,
@@ -370,5 +373,50 @@ class FlClashV2etBridge implements V2etBridge {
             : null,
       );
     }).toList();
+  }
+
+  Future<V2etInviteData> _fetchInviteData() async {
+    final session = await _sessionStore.read();
+    if (session == null || !session.hasToken) {
+      throw StateError('session not found');
+    }
+    final items = await _panelApi.fetchInviteData(
+      baseUrl: session.baseUrl,
+      accessToken: session.accessToken,
+    );
+    final cfg = await _panelApi.fetchCommConfig(
+      baseUrl: session.baseUrl,
+      accessToken: session.accessToken,
+    );
+    final cfgData = cfg['data'] is Map ? cfg['data'] as Map : cfg;
+    final commissionRate = _toDouble(
+      cfgData['invite_commission'] ?? cfgData['commission_rate'],
+    );
+
+    final codes = <String>[];
+    var inviteCount = 0;
+    var totalCommission = 0.0;
+    for (final item in items) {
+      final code = '${item['code'] ?? item['invite_code'] ?? ''}'.trim();
+      if (code.isNotEmpty) {
+        codes.add(code);
+      }
+      inviteCount += _toInt(item['invite_count'] ?? item['count']);
+      totalCommission += _toDouble(
+        item['commission'] ?? item['total_commission'],
+      );
+    }
+    return V2etInviteData(
+      codes: codes,
+      commissionRate: commissionRate,
+      inviteCount: inviteCount,
+      totalCommission: totalCommission,
+    );
+  }
+
+  double _toDouble(dynamic value) {
+    if (value is double) return value;
+    if (value is num) return value.toDouble();
+    return double.tryParse('${value ?? ''}') ?? 0;
   }
 }

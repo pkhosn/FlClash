@@ -65,6 +65,21 @@ class V2etOrder {
 }
 
 @immutable
+class V2etInviteData {
+  const V2etInviteData({
+    required this.codes,
+    required this.commissionRate,
+    required this.inviteCount,
+    required this.totalCommission,
+  });
+
+  final List<String> codes;
+  final double commissionRate;
+  final int inviteCount;
+  final double totalCommission;
+}
+
+@immutable
 class V2etNotice {
   const V2etNotice({
     required this.id,
@@ -108,6 +123,10 @@ abstract class V2etStoreGateway {
   });
 }
 
+abstract class V2etInviteGateway {
+  Future<V2etInviteData> fetchInviteData();
+}
+
 abstract class V2etNoticeGateway {
   Future<List<V2etNotice>> fetchNotices();
 }
@@ -124,5 +143,6 @@ abstract class V2etBridge
         V2etAuthGateway,
         V2etSubscriptionGateway,
         V2etStoreGateway,
+        V2etInviteGateway,
         V2etNoticeGateway,
         V2etConnectivityGateway {}

@@ -123,6 +123,50 @@ class V2etPanelApi {
     return const [];
   }
 
+  Future<List<Map<String, dynamic>>> fetchInviteData({
+    required Uri baseUrl,
+    required String accessToken,
+  }) async {
+    final uri = _join(baseUrl, '/api/v1/user/invite/fetch');
+    final response = await _dio.getUri<Map<String, dynamic>>(
+      uri,
+      options: Options(
+        headers: {
+          'Accept': 'application/json,text/plain,*/*',
+          'Authorization': accessToken,
+        },
+        responseType: ResponseType.json,
+      ),
+    );
+    final body = response.data ?? const <String, dynamic>{};
+    final data = body['data'];
+    if (data is List) {
+      return data
+          .whereType<Map>()
+          .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
+          .toList();
+    }
+    return const [];
+  }
+
+  Future<Map<String, dynamic>> fetchCommConfig({
+    required Uri baseUrl,
+    required String accessToken,
+  }) async {
+    final uri = _join(baseUrl, '/api/v1/user/comm/config');
+    final response = await _dio.getUri<Map<String, dynamic>>(
+      uri,
+      options: Options(
+        headers: {
+          'Accept': 'application/json,text/plain,*/*',
+          'Authorization': accessToken,
+        },
+        responseType: ResponseType.json,
+      ),
+    );
+    return response.data ?? const <String, dynamic>{};
+  }
+
   Future<void> cancelOrder({
     required Uri baseUrl,
     required String accessToken,
