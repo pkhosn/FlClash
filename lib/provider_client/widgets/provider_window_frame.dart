@@ -40,7 +40,6 @@ class _MacTitleBar extends StatelessWidget {
         border: Border(bottom: BorderSide(color: Color(0xFFE2E5EA))),
       ),
       child: Stack(
-        alignment: Alignment.center,
         children: [
           Positioned(
             left: 14,
@@ -54,7 +53,6 @@ class _MacTitleBar extends StatelessWidget {
               ],
             ),
           ),
-          Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Colors.black87)),
         ],
       ),
     );

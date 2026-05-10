@@ -26,9 +26,14 @@ class Window {
       protocol.register('clashmeta');
       protocol.register('flclash');
     }
+    const enableV2etShell = bool.fromEnvironment(
+      'ENABLE_V2ET_SHELL',
+      defaultValue: false,
+    );
     await windowManager.ensureInitialized();
     // kDebugMode ? Size(680, 580) :
     WindowOptions windowOptions = WindowOptions(
+      title: enableV2etShell ? 'v2et' : appName,
       size: props.size,
       minimumSize: const Size(380, 400),
     );
