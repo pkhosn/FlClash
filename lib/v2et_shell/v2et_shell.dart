@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:fl_clash/v2et_bridge/v2et_bridge_export.dart';
 import 'package:fl_clash/v2et_shell/v2et_runtime_config.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -10,6 +11,8 @@ const _kPrimary = Color(0xFF0665D0);
 const _kAppBg = Colors.white;
 const _kSidebarBg = Colors.white;
 const _kFallbackApiUrl = 'http://v2et-board.xizdj.com';
+const _kPanelBg = Color(0xFFF7FAFF);
+const _kPanelBorder = Color(0xFFD9E3F0);
 
 class V2etShellPage extends ConsumerStatefulWidget {
   const V2etShellPage({super.key});
@@ -377,6 +380,7 @@ class _MainShellState extends ConsumerState<_MainShell> {
   bool _showNodePicker = false;
   int _activeGroupIndex = 0;
   String _activeNodeName = '自动选择';
+  final TextEditingController _statusQueryCtrl = TextEditingController();
   String? _loadError;
   bool _loadingData = false;
   final GlobalKey _supportKey = GlobalKey();
@@ -404,6 +408,12 @@ class _MainShellState extends ConsumerState<_MainShell> {
   void initState() {
     super.initState();
     _init();
+  }
+
+  @override
+  void dispose() {
+    _statusQueryCtrl.dispose();
+    super.dispose();
   }
 
   Future<void> _init() async {
@@ -498,6 +508,14 @@ class _MainShellState extends ConsumerState<_MainShell> {
     await ref
         .read(v2etBridgeProvider)
         .changePassword(oldPassword: oldPwd, newPassword: newPwd);
+  }
+
+  Future<void> _openUrl(String? raw) async {
+    final text = (raw ?? '').trim();
+    if (text.isEmpty) return;
+    final uri = Uri.tryParse(text);
+    if (uri == null) return;
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
   String _formatBytes(int? value) {
@@ -1189,7 +1207,15 @@ class _MainShellState extends ConsumerState<_MainShell> {
                       ),
                     ),
                     IconButton(
-                      onPressed: () {},
+                      onPressed: () async {
+                        await Clipboard.setData(
+                          const ClipboardData(text: 'L6C9jvcG'),
+                        );
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(
+                          context,
+                        ).showSnackBar(const SnackBar(content: Text('邀请码已复制')));
+                      },
                       icon: const Icon(Icons.copy_rounded, color: _kPrimary),
                     ),
                   ],
@@ -1217,6 +1243,51 @@ class _MainShellState extends ConsumerState<_MainShell> {
     final rows = _nodeGroups.expand((e) => e.nodes).take(10).toList();
     return ListView(
       children: [
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _statusQueryCtrl,
+                decoration: InputDecoration(
+                  hintText: '搜索连接...',
+                  prefixIcon: const Icon(Icons.search_rounded),
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: _kPanelBorder),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: _kPanelBorder),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              width: 38,
+              height: 38,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE8F1FD),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                '${rows.length}',
+                style: const TextStyle(
+                  color: Color(0xFF1F2937),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            IconButton(
+              onPressed: () => _statusQueryCtrl.clear(),
+              icon: const Icon(Icons.delete_rounded),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
         _card(
           child: Column(
             children: List.generate(math.max(rows.length, 1), (i) {
@@ -1305,6 +1376,23 @@ class _MainShellState extends ConsumerState<_MainShell> {
           ),
         ),
         const SizedBox(height: 16),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            OutlinedButton.icon(
+              onPressed: () => _openUrl(widget.runtime.inviteManageUrl),
+              icon: const Icon(Icons.group_add_rounded),
+              label: const Text('邀请管理'),
+            ),
+            OutlinedButton.icon(
+              onPressed: () => _openUrl(widget.runtime.giftCardHelpUrl),
+              icon: const Icon(Icons.card_giftcard_rounded),
+              label: const Text('礼品卡帮助'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
         const Text(
           '账户与安全',
           style: TextStyle(
@@ -1354,6 +1442,23 @@ class _MainShellState extends ConsumerState<_MainShell> {
               ),
             ),
             const Divider(height: 20),
+            _SettingRow(
+              title: '复制代理地址',
+              subtitle: '127.0.0.1:7890',
+              trailing: FilledButton.tonal(
+                onPressed: () async {
+                  await Clipboard.setData(
+                    const ClipboardData(text: '127.0.0.1:7890'),
+                  );
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(const SnackBar(content: Text('代理地址已复制')));
+                },
+                child: const Text('复制'),
+              ),
+            ),
+            const Divider(height: 20),
             const _SettingRow(
               title: '主题色',
               subtitle: '当前打包固定主题色',
@@ -1377,9 +1482,9 @@ class _MainShellState extends ConsumerState<_MainShell> {
   }) => Container(
     padding: padding,
     decoration: BoxDecoration(
-      color: const Color(0xFFF7F9FC),
+      color: _kPanelBg,
       borderRadius: BorderRadius.circular(18),
-      border: Border.all(color: const Color(0xFFDDE2EA)),
+      border: Border.all(color: _kPanelBorder),
     ),
     child: child,
   );
