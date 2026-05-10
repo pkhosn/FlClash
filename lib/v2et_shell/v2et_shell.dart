@@ -17,6 +17,9 @@ const _kSidebarBg = Colors.white;
 const _kFallbackApiUrl = 'http://v2et-board.xizdj.com';
 const _kPanelBg = Color(0xFFF7FAFF);
 const _kPanelBorder = Color(0xFFD9E3F0);
+const _kTextPrimary = Color(0xFF111827);
+const _kTextSecondary = Color(0xFF4B5563);
+const _kTextMuted = Color(0xFF6B7280);
 
 class V2etShellPage extends ConsumerStatefulWidget {
   const V2etShellPage({super.key});
@@ -637,6 +640,7 @@ class _MainShellState extends ConsumerState<_MainShell> {
                       style: TextStyle(
                         fontSize: 28 / 1.6,
                         fontWeight: FontWeight.w700,
+                        color: _kTextPrimary,
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -712,19 +716,13 @@ class _MainShellState extends ConsumerState<_MainShell> {
             children: [
               if (selected) Container(width: 3, height: 18, color: _kPrimary),
               if (selected) const SizedBox(width: 8),
-              Icon(
-                icon,
-                color: selected ? _kPrimary : const Color(0xFF7C7C7C),
-                size: 20,
-              ),
+              Icon(icon, color: selected ? _kPrimary : _kTextMuted, size: 20),
               const SizedBox(width: 10),
               Text(
                 label,
                 style: TextStyle(
                   fontSize: 13,
-                  color: selected
-                      ? const Color(0xFF111827)
-                      : const Color(0xFF4B5563),
+                  color: selected ? _kTextPrimary : _kTextSecondary,
                   fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                 ),
               ),
@@ -751,7 +749,7 @@ class _MainShellState extends ConsumerState<_MainShell> {
             onTap: () async => widget.onLogout(),
             child: const Padding(
               padding: EdgeInsets.symmetric(vertical: 16),
-              child: Icon(Icons.logout_rounded, color: Color(0xFF7C7C7C)),
+              child: Icon(Icons.logout_rounded, color: _kTextMuted),
             ),
           ),
         ],
@@ -858,7 +856,10 @@ class _MainShellState extends ConsumerState<_MainShell> {
                     ),
                   ),
                   Spacer(),
-                  Text('根据规则自动选择直连或代理'),
+                  Text(
+                    '根据规则自动选择直连或代理',
+                    style: TextStyle(color: _kTextSecondary, fontSize: 12),
+                  ),
                 ],
               ),
               const SizedBox(height: 14),
@@ -1199,7 +1200,7 @@ class _MainShellState extends ConsumerState<_MainShell> {
       children: [
         Text(
           label,
-          style: const TextStyle(color: Color(0xFF787878), fontSize: 12),
+          style: const TextStyle(color: _kTextSecondary, fontSize: 12),
         ),
         const SizedBox(height: 4),
         Text(
@@ -1390,6 +1391,7 @@ class _MainShellState extends ConsumerState<_MainShell> {
                 onChanged: (_) => setState(() {}),
                 decoration: InputDecoration(
                   hintText: '搜索连接...',
+                  hintStyle: const TextStyle(color: _kTextMuted),
                   prefixIcon: const Icon(Icons.search_rounded),
                   filled: true,
                   fillColor: Colors.white,
@@ -1436,10 +1438,7 @@ class _MainShellState extends ConsumerState<_MainShell> {
                   padding: EdgeInsets.all(12),
                   child: Align(
                     alignment: Alignment.centerLeft,
-                    child: Text(
-                      '暂无连接记录',
-                      style: TextStyle(color: Color(0xFF7A7A7A)),
-                    ),
+                    child: Text('暂无连接记录', style: TextStyle(color: _kTextMuted)),
                   ),
                 );
               }
@@ -1453,7 +1452,7 @@ class _MainShellState extends ConsumerState<_MainShell> {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFE2E6EE)),
+                  border: Border.all(color: _kPanelBorder),
                 ),
                 child: Row(
                   children: [
