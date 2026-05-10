@@ -51,7 +51,7 @@ dependencies:
   flutter_riverpod: ^3.0.0
   riverpod_annotation: ^3.0.0
   riverpod: ^3.0.0
-  material_color_utilities: ^0.11.1
+  material_color_utilities: ^0.13.0
   flutter_js:
     git:
       url: https://github.com/chen08209/flutter_js
@@ -92,6 +92,14 @@ flutter:
     - assets/images/empty/
     - assets/images/icon/
   fonts:
+    - family: V2ETSans
+      fonts:
+        - asset: assets/fonts/NotoSansSC-Regular.otf
+          weight: 400
+        - asset: assets/fonts/NotoSansSC-Medium.otf
+          weight: 600
+        - asset: assets/fonts/NotoSansSC-Bold.otf
+          weight: 800
     - family: JetBrainsMono
       fonts:
         - asset: assets/fonts/JetBrainsMono-Regular.ttf
