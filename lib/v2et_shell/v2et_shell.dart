@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:fl_clash/controller.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/v2et_bridge/v2et_bridge_export.dart';
@@ -474,6 +475,13 @@ class _MainShellState extends ConsumerState<_MainShell> {
     return byUrl[proxy.name] ?? -1;
   }
 
+  int _activeNodeDelay() {
+    if (_nodeGroups.isEmpty) return -1;
+    final group = _nodeGroups[_activeGroupIndex];
+    final node = group.nodes.where((e) => e.name == _activeNodeName).firstOrNull;
+    return node?.delay ?? -1;
+  }
+
   Future<void> _syncMode() async {
     _mode = await ref.read(v2etBridgeProvider).getProxyMode();
     if (mounted) setState(() {});
@@ -871,10 +879,16 @@ class _MainShellState extends ConsumerState<_MainShell> {
                     ),
                   ),
                 ),
-                const Text(
-                  '103ms',
+                Text(
+                  _activeNodeDelay() < 0 ? '超时' : '${_activeNodeDelay()}ms',
                   style: TextStyle(
-                    color: Colors.green,
+                    color: _activeNodeDelay() < 0
+                        ? Colors.red
+                        : (_activeNodeDelay() > 500
+                            ? Colors.red
+                            : (_activeNodeDelay() > 250
+                                ? Colors.orange
+                                : Colors.green)),
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -1063,6 +1077,11 @@ class _MainShellState extends ConsumerState<_MainShell> {
                                     Expanded(
                                       child: InkWell(
                                         onTap: () {
+                                          final groupName = group.name;
+                                          appController.changeProxyDebounce(
+                                            groupName,
+                                            n.name,
+                                          );
                                           setState(() {
                                             _activeNodeName = n.name;
                                             _showNodePicker = false;
@@ -1308,7 +1327,11 @@ class _MainShellState extends ConsumerState<_MainShell> {
   }
 
   Widget _statusPage() {
-    final rows = _nodeGroups.expand((e) => e.nodes).take(10).toList();
+    final rows = _nodeGroups.expand((e) => e.nodes).toList();
+    final query = _statusQueryCtrl.text.trim().toLowerCase();
+    final filtered = query.isEmpty
+        ? rows
+        : rows.where((e) => e.name.toLowerCase().contains(query)).toList();
     return ListView(
       children: [
         Row(
@@ -1342,7 +1365,7 @@ class _MainShellState extends ConsumerState<_MainShell> {
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
-                '${rows.length}',
+                '${filtered.length}',
                 style: const TextStyle(
                   color: Color(0xFF1F2937),
                   fontWeight: FontWeight.w700,
@@ -1350,7 +1373,7 @@ class _MainShellState extends ConsumerState<_MainShell> {
               ),
             ),
             IconButton(
-              onPressed: () => _statusQueryCtrl.clear(),
+              onPressed: () => setState(() => _statusQueryCtrl.clear()),
               icon: const Icon(Icons.delete_rounded),
             ),
           ],
@@ -1358,8 +1381,8 @@ class _MainShellState extends ConsumerState<_MainShell> {
         const SizedBox(height: 10),
         _card(
           child: Column(
-            children: List.generate(math.max(rows.length, 1), (i) {
-              if (rows.isEmpty) {
+            children: List.generate(math.max(filtered.length, 1), (i) {
+              if (filtered.isEmpty) {
                 return const Padding(
                   padding: EdgeInsets.all(12),
                   child: Align(
@@ -1371,10 +1394,12 @@ class _MainShellState extends ConsumerState<_MainShell> {
                   ),
                 );
               }
-              final n = rows[i];
+              final n = filtered[i];
               final timeout = n.delay < 0;
               return Container(
-                margin: EdgeInsets.only(bottom: i == rows.length - 1 ? 0 : 10),
+                margin: EdgeInsets.only(
+                  bottom: i == filtered.length - 1 ? 0 : 10,
+                ),
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: Colors.white,
