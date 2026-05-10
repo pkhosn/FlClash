@@ -572,6 +572,16 @@ class _MainShellState extends ConsumerState<_MainShell> {
     await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
+  String _inviteCodeText() {
+    final raw = (widget.runtime.inviteManageUrl ?? '').trim();
+    if (raw.isEmpty) return '未配置邀请链接';
+    final uri = Uri.tryParse(raw);
+    if (uri == null) return '邀请链接已配置';
+    final code = uri.queryParameters['code'];
+    if (code != null && code.isNotEmpty) return code;
+    return uri.host.isNotEmpty ? uri.host : '邀请链接已配置';
+  }
+
   String _formatBytes(int? value) {
     if (value == null || value <= 0) return '-';
     const units = ['B', 'KB', 'MB', 'GB', 'TB'];
@@ -1056,10 +1066,13 @@ class _MainShellState extends ConsumerState<_MainShell> {
                               ),
                               const Spacer(),
                               FilledButton.tonal(
-                                onPressed: () {
-                                  appController.updateGroupsDebounce();
+                                onPressed: () async {
+                                  await appController.updateGroups();
+                                  await Future<void>.delayed(
+                                    const Duration(milliseconds: 220),
+                                  );
                                   _syncNodeGroupsFromCore();
-                                  setState(() {});
+                                  if (mounted) setState(() {});
                                 },
                                 child: const Text('全部测速'),
                               ),
@@ -1288,10 +1301,10 @@ class _MainShellState extends ConsumerState<_MainShell> {
                 ),
                 child: Row(
                   children: [
-                    const Expanded(
+                    Expanded(
                       child: Text(
-                        'L6C9jvcG',
-                        style: TextStyle(
+                        _inviteCodeText(),
+                        style: const TextStyle(
                           fontSize: 42 / 1.6,
                           fontWeight: FontWeight.w800,
                           color: _kPrimary,
@@ -1300,13 +1313,12 @@ class _MainShellState extends ConsumerState<_MainShell> {
                     ),
                     IconButton(
                       onPressed: () async {
-                        await Clipboard.setData(
-                          const ClipboardData(text: 'L6C9jvcG'),
-                        );
+                        final text = _inviteCodeText();
+                        await Clipboard.setData(ClipboardData(text: text));
                         if (!mounted) return;
-                        ScaffoldMessenger.of(
-                          context,
-                        ).showSnackBar(const SnackBar(content: Text('邀请码已复制')));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('邀请信息已复制')),
+                        );
                       },
                       icon: const Icon(Icons.copy_rounded, color: _kPrimary),
                     ),
@@ -1420,6 +1432,11 @@ class _MainShellState extends ConsumerState<_MainShell> {
               onSelected: (_) => setState(() => _statusSortType = 2),
             ),
           ],
+        ),
+        const SizedBox(height: 6),
+        Text(
+          '当前排序：${_statusSortType == 0 ? '时间' : (_statusSortType == 1 ? '上传流量' : '下载流量')}',
+          style: const TextStyle(color: Color(0xFF6B7280), fontSize: 12),
         ),
         const SizedBox(height: 10),
         _card(
