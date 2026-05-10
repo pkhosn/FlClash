@@ -386,8 +386,6 @@ class _MainShellState extends ConsumerState<_MainShell> {
   final TextEditingController _statusQueryCtrl = TextEditingController();
   String? _loadError;
   bool _loadingData = false;
-  int _statusSortType =
-      0; // 0 delay(time), 1 upload(name asc), 2 download(name desc)
   final GlobalKey _supportKey = GlobalKey();
   List<_NodeGroup> _nodeGroups = const [];
   bool _noticeShown = false;
@@ -1346,25 +1344,9 @@ class _MainShellState extends ConsumerState<_MainShell> {
   Widget _statusPage() {
     final rows = _nodeGroups.expand((e) => e.nodes).toList();
     final query = _statusQueryCtrl.text.trim().toLowerCase();
-    final filteredRaw = query.isEmpty
+    final filtered = query.isEmpty
         ? rows
         : rows.where((e) => e.name.toLowerCase().contains(query)).toList();
-    final filtered = List<_NodeItem>.from(filteredRaw);
-    switch (_statusSortType) {
-      case 0:
-        filtered.sort((a, b) {
-          final ad = a.delay < 0 ? 999999 : a.delay;
-          final bd = b.delay < 0 ? 999999 : b.delay;
-          return ad.compareTo(bd);
-        });
-        break;
-      case 1:
-        filtered.sort((a, b) => a.name.compareTo(b.name));
-        break;
-      case 2:
-        filtered.sort((a, b) => b.name.compareTo(a.name));
-        break;
-    }
     return ListView(
       children: [
         Row(
@@ -1411,32 +1393,6 @@ class _MainShellState extends ConsumerState<_MainShell> {
               icon: const Icon(Icons.delete_rounded),
             ),
           ],
-        ),
-        const SizedBox(height: 10),
-        Wrap(
-          spacing: 8,
-          children: [
-            ChoiceChip(
-              label: const Text('时间'),
-              selected: _statusSortType == 0,
-              onSelected: (_) => setState(() => _statusSortType = 0),
-            ),
-            ChoiceChip(
-              label: const Text('上传流量'),
-              selected: _statusSortType == 1,
-              onSelected: (_) => setState(() => _statusSortType = 1),
-            ),
-            ChoiceChip(
-              label: const Text('下载流量'),
-              selected: _statusSortType == 2,
-              onSelected: (_) => setState(() => _statusSortType = 2),
-            ),
-          ],
-        ),
-        const SizedBox(height: 6),
-        Text(
-          '当前排序：${_statusSortType == 0 ? '时间' : (_statusSortType == 1 ? '上传流量' : '下载流量')}',
-          style: const TextStyle(color: Color(0xFF6B7280), fontSize: 12),
         ),
         const SizedBox(height: 10),
         _card(
