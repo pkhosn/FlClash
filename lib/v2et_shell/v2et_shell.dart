@@ -224,9 +224,9 @@ class _AuthShellState extends ConsumerState<_AuthShell> {
                       obscure: true,
                     ),
                     const SizedBox(height: 10),
-                    _solidBtn('注册（待接入后端）', () {
+                    _solidBtn('注册（未开放）', () {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('当前后端未接入注册接口')),
+                        const SnackBar(content: Text('当前客户端仅开放登录，注册请前往官网')),
                       );
                     }),
                     const SizedBox(height: 10),
@@ -239,9 +239,9 @@ class _AuthShellState extends ConsumerState<_AuthShell> {
                   ] else ...[
                     _input(_email, '请输入邮箱地址', Icons.mail_outline_rounded),
                     const SizedBox(height: 10),
-                    _solidBtn('发送验证码（待接入后端）', () {
+                    _solidBtn('发送验证码（未开放）', () {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('当前后端未接入忘记密码接口')),
+                        const SnackBar(content: Text('当前客户端仅开放登录，重置密码请前往官网')),
                       );
                     }),
                     const SizedBox(height: 10),
@@ -1019,7 +1019,15 @@ class _MainShellState extends ConsumerState<_MainShell> {
                           final g = _nodeGroups[i];
                           final sel = i == _activeGroupIndex;
                           return InkWell(
-                            onTap: () => setState(() => _activeGroupIndex = i),
+                            onTap: () => setState(() {
+                              _activeGroupIndex = i;
+                              final current = g.current;
+                              if (current != null && current.isNotEmpty) {
+                                _activeNodeName = current;
+                              } else if (g.nodes.isNotEmpty) {
+                                _activeNodeName = g.nodes.first.name;
+                              }
+                            }),
                             borderRadius: BorderRadius.circular(12),
                             child: Container(
                               margin: const EdgeInsets.only(bottom: 8),
