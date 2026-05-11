@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dio/dio.dart';
 import 'package:fl_clash/controller.dart';
 import 'package:fl_clash/common/preferences.dart';
 import 'package:fl_clash/models/models.dart';
@@ -276,11 +277,11 @@ class _V2ETAuthGateState extends ConsumerState<V2ETAuthGate> {
           activeBaseUrl = baseUrl;
           break;
         } catch (e) {
-          lastError = e;
+          lastError = _extractApiErrorMessage(e);
         }
       }
       if (activeBaseUrl == null) {
-        throw StateError('所有 API 地址登录失败: $lastError');
+        throw StateError('${lastError ?? '登录失败'}');
       }
       final subscription = await bridge.fetchSubscription();
 
@@ -303,7 +304,7 @@ class _V2ETAuthGateState extends ConsumerState<V2ETAuthGate> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        loginError = '登录失败: $e';
+        loginError = '登录失败: ${_extractApiErrorMessage(e)}';
       });
     } finally {
       if (mounted && !silent) {
@@ -482,7 +483,7 @@ class _V2ETAuthGateState extends ConsumerState<V2ETAuthGate> {
         _showToast('验证码已发送');
         return;
       } catch (e) {
-        lastError = e;
+        lastError = _extractApiErrorMessage(e);
       }
     }
     _showToast('发送验证码失败: $lastError');
@@ -529,7 +530,7 @@ class _V2ETAuthGateState extends ConsumerState<V2ETAuthGate> {
         setState(() => page = 'login');
         return;
       } catch (e) {
-        lastError = e;
+        lastError = _extractApiErrorMessage(e);
       }
     }
     _showToast('注册失败: $lastError');
@@ -542,6 +543,48 @@ class _V2ETAuthGateState extends ConsumerState<V2ETAuthGate> {
     } else {
       V2ETNotice.info(context, text);
     }
+  }
+
+  String _extractApiErrorMessage(Object error) {
+    if (error is DioException) {
+      final data = error.response?.data;
+      if (data is Map) {
+        final message = '${data['message'] ?? ''}'.trim();
+        if (message.isNotEmpty) return message;
+        final msg = '${data['msg'] ?? ''}'.trim();
+        if (msg.isNotEmpty) return msg;
+        final errors = data['errors'];
+        if (errors is Map) {
+          for (final value in errors.values) {
+            if (value is List && value.isNotEmpty) {
+              final first = '${value.first}'.trim();
+              if (first.isNotEmpty) return first;
+            }
+            final text = '$value'.trim();
+            if (text.isNotEmpty) return text;
+          }
+        } else if (errors is List && errors.isNotEmpty) {
+          final first = '${errors.first}'.trim();
+          if (first.isNotEmpty) return first;
+        } else if (errors != null) {
+          final text = '$errors'.trim();
+          if (text.isNotEmpty) return text;
+        }
+      } else if (data is String && data.trim().isNotEmpty) {
+        return data.trim();
+      }
+      return error.message?.trim().isNotEmpty == true
+          ? error.message!.trim()
+          : '请求失败';
+    }
+    final text = error.toString().trim();
+    if (text.startsWith('Exception:')) {
+      return text.substring('Exception:'.length).trim();
+    }
+    if (text.startsWith('Bad state:')) {
+      return text.substring('Bad state:'.length).trim();
+    }
+    return text;
   }
 }
 

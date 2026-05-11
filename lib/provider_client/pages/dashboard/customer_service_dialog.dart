@@ -83,6 +83,7 @@ class _V2ETCustomerServiceDialogState extends State<V2ETCustomerServiceDialog> {
   int _candidateIndex = 0;
   bool _loading = true;
   String? _errorText;
+  bool _webviewUnavailable = false;
 
   @override
   void initState() {
@@ -112,6 +113,7 @@ class _V2ETCustomerServiceDialogState extends State<V2ETCustomerServiceDialog> {
       setState(() {
         _loading = false;
         _controller = null;
+        _webviewUnavailable = false;
       });
       return;
     }
@@ -130,7 +132,9 @@ class _V2ETCustomerServiceDialogState extends State<V2ETCustomerServiceDialog> {
           ),
         )
         ..loadRequest(target);
+      _webviewUnavailable = false;
     } catch (e) {
+      _webviewUnavailable = true;
       _tryNextCandidateOrFail('$e');
     }
   }
@@ -157,8 +161,10 @@ class _V2ETCustomerServiceDialogState extends State<V2ETCustomerServiceDialog> {
   Widget build(BuildContext context) {
     final crispId = widget.crispWebsiteId.trim();
     final support = widget.supportUrl.trim();
-    final hasCrisp = _controller != null;
-    final showInlineError = hasCrisp && (_errorText ?? '').isNotEmpty;
+    final controller = _controller;
+    final hasCrisp = controller != null && !_webviewUnavailable;
+    final errorText = (_errorText ?? '').trim();
+    final showInlineError = hasCrisp && errorText.isNotEmpty;
     return Container(
         decoration: BoxDecoration(
           color: Colors.white,
@@ -219,7 +225,30 @@ class _V2ETCustomerServiceDialogState extends State<V2ETCustomerServiceDialog> {
               child: hasCrisp
                   ? Stack(
                       children: [
-                        Positioned.fill(child: WebViewWidget(controller: _controller!)),
+                        Positioned.fill(
+                          child: Builder(
+                            builder: (_) {
+                              final c = _controller;
+                              if (c == null) {
+                                return const SizedBox.shrink();
+                              }
+                              try {
+                                return WebViewWidget(controller: c);
+                              } catch (e) {
+                                _webviewUnavailable = true;
+                                WidgetsBinding.instance.addPostFrameCallback((_) {
+                                  if (!mounted) return;
+                                  setState(() {
+                                    _loading = false;
+                                    _errorText = '客服组件加载失败: $e';
+                                    _controller = null;
+                                  });
+                                });
+                                return const SizedBox.shrink();
+                              }
+                            },
+                          ),
+                        ),
                         if (_loading)
                           const Positioned.fill(
                             child: ColoredBox(
@@ -246,7 +275,7 @@ class _V2ETCustomerServiceDialogState extends State<V2ETCustomerServiceDialog> {
                                     ),
                                     const SizedBox(height: 8),
                                     Text(
-                                      _errorText!,
+                                      errorText,
                                       textAlign: TextAlign.center,
                                       style: const TextStyle(
                                         fontSize: 12,

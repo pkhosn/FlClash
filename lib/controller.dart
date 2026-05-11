@@ -122,14 +122,9 @@ extension InitControllerExt on AppController {
   }
 
   Future<void> _handlerDisclaimer() async {
-    if (_ref.read(
-      appSettingProvider.select((state) => state.disclaimerAccepted),
-    )) {
+    // V2ET customization: disable first-launch disclaimer popup.
+    if (_ref.read(appSettingProvider.select((state) => state.disclaimerAccepted))) {
       return;
-    }
-    final isDisclaimerAccepted = await showDisclaimer();
-    if (!isDisclaimerAccepted) {
-      await handleExit();
     }
     _ref
         .read(appSettingProvider.notifier)
