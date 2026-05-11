@@ -1,5 +1,6 @@
 import 'package:fl_clash/controller.dart';
 import 'package:fl_clash/providers/state.dart';
+import 'package:fl_clash/views/proxies/common.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../theme/provider_tokens.dart';
@@ -27,6 +28,8 @@ class V2ETProxyGroupDialog extends ConsumerStatefulWidget {
 
 class _V2ETProxyGroupDialogState extends ConsumerState<V2ETProxyGroupDialog> {
   String? selectedGroup;
+  bool testingAll = false;
+  final Set<String> testingProxyNames = <String>{};
 
   @override
   Widget build(BuildContext context) {
@@ -40,6 +43,7 @@ class _V2ETProxyGroupDialogState extends ConsumerState<V2ETProxyGroupDialog> {
       orElse: () => groups.first,
     );
     final selectedProxyName = ref.watch(getSelectedProxyNameProvider(current.name));
+    final testUrl = ref.watch(realTestUrlProvider(current.testUrl));
 
     return Center(
       child: Container(
@@ -114,10 +118,19 @@ class _V2ETProxyGroupDialogState extends ConsumerState<V2ETProxyGroupDialog> {
                           icon: Icons.speed_rounded,
                           tone: V2ETButtonTone.soft,
                           height: 30,
-                          onPressed: () async {
-                            await appController.updateGroups();
-                            if (mounted) setState(() {});
-                          },
+                          onPressed: testingAll
+                              ? null
+                              : () async {
+                                  setState(() => testingAll = true);
+                                  try {
+                                    await delayTest(current.all, current.testUrl);
+                                    await appController.updateGroups();
+                                  } finally {
+                                    if (mounted) {
+                                      setState(() => testingAll = false);
+                                    }
+                                  }
+                                },
                         ),
                       ],
                     ),
@@ -132,8 +145,22 @@ class _V2ETProxyGroupDialogState extends ConsumerState<V2ETProxyGroupDialog> {
                         final active = proxy.name == selectedProxyName;
                         return _NodeTile(
                           name: proxy.name,
-                          delay: current.testUrl?.isNotEmpty == true ? '可测速' : '--',
+                          delay: _formatDelay(ref, proxy.name, testUrl),
                           active: active,
+                          testing: testingProxyNames.contains(proxy.name),
+                          onTest: () async {
+                            setState(() => testingProxyNames.add(proxy.name));
+                            try {
+                              await proxyDelayTest(proxy, current.testUrl);
+                              await appController.updateGroups();
+                            } finally {
+                              if (mounted) {
+                                setState(
+                                  () => testingProxyNames.remove(proxy.name),
+                                );
+                              }
+                            }
+                          },
                           onTap: () async {
                             await appController.changeProxy(
                               groupName: current.name,
@@ -153,6 +180,13 @@ class _V2ETProxyGroupDialogState extends ConsumerState<V2ETProxyGroupDialog> {
         ),
       ),
     );
+  }
+
+  String _formatDelay(WidgetRef ref, String proxyName, String? testUrl) {
+    final delay = ref.watch(getDelayProvider(proxyName: proxyName, testUrl: testUrl));
+    if (delay == null) return '--';
+    if (delay <= 0) return '测试中';
+    return '${delay}ms';
   }
 }
 
@@ -223,12 +257,16 @@ class _NodeTile extends StatelessWidget {
     required this.name,
     required this.delay,
     required this.active,
+    required this.testing,
+    required this.onTest,
     required this.onTap,
   });
 
   final String name;
   final String delay;
   final bool active;
+  final bool testing;
+  final VoidCallback onTest;
   final VoidCallback onTap;
 
   @override
@@ -259,6 +297,29 @@ class _NodeTile extends StatelessWidget {
                 fontSize: 13,
                 fontWeight: FontWeight.w900,
                 color: V2ETTokens.success,
+              ),
+            ),
+            const SizedBox(width: 8),
+            InkWell(
+              onTap: testing ? null : onTest,
+              borderRadius: BorderRadius.circular(7),
+              child: Container(
+                width: 26,
+                height: 26,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEAF4FF),
+                  borderRadius: BorderRadius.circular(7),
+                ),
+                child: testing
+                    ? const Padding(
+                        padding: EdgeInsets.all(6),
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(
+                        Icons.speed_rounded,
+                        size: 15,
+                        color: V2ETTokens.primary,
+                      ),
               ),
             ),
             if (active) ...[

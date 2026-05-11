@@ -19,6 +19,8 @@ class V2ETRegisterPage extends StatefulWidget {
     required this.isDarkMode,
     required this.serviceOk,
     required this.onServiceTap,
+    required this.onSendVerifyCode,
+    required this.onSubmitRegister,
   });
   final VoidCallback onLogin;
   final String brandName;
@@ -31,6 +33,14 @@ class V2ETRegisterPage extends StatefulWidget {
   final bool isDarkMode;
   final bool serviceOk;
   final VoidCallback onServiceTap;
+  final Future<void> Function(String email, bool isForgetPassword) onSendVerifyCode;
+  final Future<void> Function({
+    required String email,
+    required String password,
+    required String confirmPassword,
+    required String emailCode,
+  })
+  onSubmitRegister;
 
   @override
   State<V2ETRegisterPage> createState() => _V2ETRegisterPageState();
@@ -38,6 +48,12 @@ class V2ETRegisterPage extends StatefulWidget {
 
 class _V2ETRegisterPageState extends State<V2ETRegisterPage> {
   late String selectedSuffix;
+  final _userController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _confirmController = TextEditingController();
+  final _codeController = TextEditingController();
+  bool _submitting = false;
+  bool _sendingCode = false;
 
   @override
   void initState() {
@@ -45,6 +61,15 @@ class _V2ETRegisterPageState extends State<V2ETRegisterPage> {
     selectedSuffix = widget.emailSuffixes.isEmpty
         ? 'qq.com'
         : widget.emailSuffixes.first;
+  }
+
+  @override
+  void dispose() {
+    _userController.dispose();
+    _passwordController.dispose();
+    _confirmController.dispose();
+    _codeController.dispose();
+    super.dispose();
   }
 
   @override
@@ -109,8 +134,9 @@ class _V2ETRegisterPageState extends State<V2ETRegisterPage> {
             const SizedBox(height: 26),
             Row(
               children: [
-                const Expanded(
+                Expanded(
                   child: V2ETInput(
+                    controller: _userController,
                     hintText: '邮箱用户名',
                     prefixIcon: Icons.mail_outline_rounded,
                     height: 40,
@@ -163,14 +189,16 @@ class _V2ETRegisterPageState extends State<V2ETRegisterPage> {
               ],
             ),
             const SizedBox(height: 12),
-            const V2ETInput(
+            V2ETInput(
+              controller: _passwordController,
               hintText: '请输入密码',
               prefixIcon: Icons.lock_outline_rounded,
               obscureText: true,
               height: 40,
             ),
             const SizedBox(height: 12),
-            const V2ETInput(
+            V2ETInput(
+              controller: _confirmController,
               hintText: '请再次输入密码',
               prefixIcon: Icons.lock_outline_rounded,
               obscureText: true,
@@ -179,8 +207,9 @@ class _V2ETRegisterPageState extends State<V2ETRegisterPage> {
             const SizedBox(height: 12),
             Row(
               children: [
-                const Expanded(
+                Expanded(
                   child: V2ETInput(
+                    controller: _codeController,
                     hintText: '请输入6位验证码',
                     prefixIcon: Icons.verified_outlined,
                     height: 40,
@@ -188,11 +217,24 @@ class _V2ETRegisterPageState extends State<V2ETRegisterPage> {
                 ),
                 const SizedBox(width: 10),
                 V2ETButton(
-                  label: '发送',
+                  label: _sendingCode ? '发送中' : '发送',
                   tone: V2ETButtonTone.dark,
                   width: 62,
                   height: 40,
-                  onPressed: () {},
+                  onPressed: _sendingCode
+                      ? null
+                      : () async {
+                          final email = _buildEmail();
+                          if (email == null) return;
+                          setState(() => _sendingCode = true);
+                          try {
+                            await widget.onSendVerifyCode(email, false);
+                          } finally {
+                            if (mounted) {
+                              setState(() => _sendingCode = false);
+                            }
+                          }
+                        },
                 ),
               ],
             ),
@@ -204,11 +246,29 @@ class _V2ETRegisterPageState extends State<V2ETRegisterPage> {
             ),
             const SizedBox(height: 20),
             V2ETButton(
-              label: '注册',
+              label: _submitting ? '提交中' : '注册',
               tone: V2ETButtonTone.dark,
               height: 40,
               width: double.infinity,
-              onPressed: () {},
+              onPressed: _submitting
+                  ? null
+                  : () async {
+                      final email = _buildEmail();
+                      if (email == null) return;
+                      setState(() => _submitting = true);
+                      try {
+                        await widget.onSubmitRegister(
+                          email: email,
+                          password: _passwordController.text,
+                          confirmPassword: _confirmController.text,
+                          emailCode: _codeController.text.trim(),
+                        );
+                      } finally {
+                        if (mounted) {
+                          setState(() => _submitting = false);
+                        }
+                      }
+                    },
             ),
             const SizedBox(height: 24),
             Row(
@@ -257,5 +317,11 @@ class _V2ETRegisterPageState extends State<V2ETRegisterPage> {
     if (lower.startsWith('zh')) return '中';
     if (lower.startsWith('en')) return 'EN';
     return code.length <= 4 ? code.toUpperCase() : code.substring(0, 4);
+  }
+
+  String? _buildEmail() {
+    final user = _userController.text.trim();
+    if (user.isEmpty) return null;
+    return '$user@$selectedSuffix';
   }
 }

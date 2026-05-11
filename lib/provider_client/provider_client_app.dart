@@ -131,6 +131,8 @@ class _V2ETAuthGateState extends ConsumerState<V2ETAuthGate> {
         isDarkMode: _isDarkMode,
         serviceOk: _serviceOk,
         onServiceTap: _showServiceDialog,
+        onSendVerifyCode: _sendEmailVerify,
+        onSubmitRegister: _submitRegister,
       );
     } else if (page == 'reset') {
       body = V2ETResetPasswordPage(
@@ -143,6 +145,7 @@ class _V2ETAuthGateState extends ConsumerState<V2ETAuthGate> {
         isDarkMode: _isDarkMode,
         serviceOk: _serviceOk,
         onServiceTap: _showServiceDialog,
+        onSendVerifyCode: _sendEmailVerify,
       );
     } else {
       body = V2ETLoginPage(
@@ -408,6 +411,74 @@ class _V2ETAuthGateState extends ConsumerState<V2ETAuthGate> {
     final configVersion = appConfig.versionText.trim();
     if (configVersion.isNotEmpty) return configVersion;
     return _packageVersionText;
+  }
+
+  Future<void> _sendEmailVerify(String email, bool isForgetPassword) async {
+    final appConfig = ref.read(appConfigProvider);
+    final candidates = _candidateBaseUrls(appConfig);
+    if (candidates.isEmpty) {
+      _showToast('配置错误：API 地址无效');
+      return;
+    }
+    final bridge = ref.read(v2etBridgeProvider);
+    Object? lastError;
+    for (final baseUrl in candidates) {
+      try {
+        await bridge.sendEmailVerify(
+          baseUrl: baseUrl,
+          email: email,
+          isForgetPassword: isForgetPassword,
+        );
+        _showToast('验证码已发送');
+        return;
+      } catch (e) {
+        lastError = e;
+      }
+    }
+    _showToast('发送验证码失败: $lastError');
+  }
+
+  Future<void> _submitRegister({
+    required String email,
+    required String password,
+    required String confirmPassword,
+    required String emailCode,
+  }) async {
+    if (password != confirmPassword) {
+      _showToast('两次输入密码不一致');
+      return;
+    }
+    final appConfig = ref.read(appConfigProvider);
+    final candidates = _candidateBaseUrls(appConfig);
+    if (candidates.isEmpty) {
+      _showToast('配置错误：API 地址无效');
+      return;
+    }
+    final bridge = ref.read(v2etBridgeProvider);
+    Object? lastError;
+    for (final baseUrl in candidates) {
+      try {
+        await bridge.register(
+          baseUrl: baseUrl,
+          email: email,
+          password: password,
+          emailCode: emailCode,
+        );
+        _showToast('注册成功，请登录');
+        if (!mounted) return;
+        setState(() => page = 'login');
+        return;
+      } catch (e) {
+        lastError = e;
+      }
+    }
+    _showToast('注册失败: $lastError');
+  }
+
+  void _showToast(String text) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
   }
 }
 

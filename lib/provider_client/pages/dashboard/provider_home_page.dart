@@ -436,11 +436,27 @@ class _ModeButton extends StatelessWidget {
   );
 }
 
-class _CurrentNodeCard extends StatelessWidget {
+class _CurrentNodeCard extends ConsumerWidget {
   const _CurrentNodeCard({required this.onOpen});
   final VoidCallback onOpen;
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final groups = ref.watch(currentGroupsStateProvider).value;
+    final currentGroup = groups.isEmpty ? null : groups.first;
+    final groupName = currentGroup?.name ?? '自动选择';
+    final selectedProxy = currentGroup == null
+        ? '--'
+        : (ref.watch(getSelectedProxyNameProvider(groupName)) ?? '--');
+    final delay = currentGroup == null
+        ? null
+        : ref.watch(
+            getDelayProvider(
+              proxyName: selectedProxy,
+              testUrl: currentGroup.testUrl,
+            ),
+          );
+    final delayText = delay == null ? '--' : (delay <= 0 ? '测试中' : '${delay}ms');
+
     return V2ETCard(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
       child: Row(
@@ -459,18 +475,18 @@ class _CurrentNodeCard extends StatelessWidget {
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
+              children: [
                 Text(
-                  '自动选择',
+                  groupName,
                   style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
                 ),
-                SizedBox(height: 4),
-                Text('香港3-Gemini', style: V2ETTokens.small),
+                const SizedBox(height: 4),
+                Text(selectedProxy, style: V2ETTokens.small),
               ],
             ),
           ),
-          const Text(
-            '83ms',
+          Text(
+            delayText,
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w900,

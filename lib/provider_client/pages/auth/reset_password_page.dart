@@ -5,7 +5,7 @@ import '../../widgets/app_input.dart';
 import '../../widgets/auth_background.dart';
 import '../dashboard/customer_service_dialog.dart';
 
-class V2ETResetPasswordPage extends StatelessWidget {
+class V2ETResetPasswordPage extends StatefulWidget {
   const V2ETResetPasswordPage({
     super.key,
     required this.onLogin,
@@ -17,6 +17,7 @@ class V2ETResetPasswordPage extends StatelessWidget {
     required this.isDarkMode,
     required this.serviceOk,
     required this.onServiceTap,
+    required this.onSendVerifyCode,
   });
   final VoidCallback onLogin;
   final String authBackgroundUrl;
@@ -27,20 +28,34 @@ class V2ETResetPasswordPage extends StatelessWidget {
   final bool isDarkMode;
   final bool serviceOk;
   final VoidCallback onServiceTap;
+  final Future<void> Function(String email, bool isForgetPassword) onSendVerifyCode;
+
+  @override
+  State<V2ETResetPasswordPage> createState() => _V2ETResetPasswordPageState();
+}
+
+class _V2ETResetPasswordPageState extends State<V2ETResetPasswordPage> {
+  final _emailController = TextEditingController();
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return AuthBackground(
-      backgroundImage: authBackgroundUrl.isNotEmpty
-          ? NetworkImage(authBackgroundUrl)
+      backgroundImage: widget.authBackgroundUrl.isNotEmpty
+          ? NetworkImage(widget.authBackgroundUrl)
           : null,
-      onBack: onLogin,
+      onBack: widget.onLogin,
       onSupport: () => showV2ETCustomerServiceDialog(
         context,
-        crispWebsiteId: crispWebsiteId,
+        crispWebsiteId: widget.crispWebsiteId,
       ),
-      serviceOk: serviceOk,
-      onServiceTap: onServiceTap,
+      serviceOk: widget.serviceOk,
+      onServiceTap: widget.onServiceTap,
       showServicePill: true,
       child: AuthGlassCard(
         width: 445,
@@ -51,9 +66,9 @@ class V2ETResetPasswordPage extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 AuthToolButton(
-                  onTap: onThemeToggle,
+                  onTap: widget.onThemeToggle,
                   child: Icon(
-                    isDarkMode
+                    widget.isDarkMode
                         ? Icons.nightlight_round
                         : Icons.wb_sunny_outlined,
                     color: V2ETTokens.textPrimary,
@@ -61,9 +76,9 @@ class V2ETResetPasswordPage extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 AuthToolButton(
-                  onTap: onLanguageTap,
+                  onTap: widget.onLanguageTap,
                   child: Text(
-                    _languageLabel(languageCode),
+                    _languageLabel(widget.languageCode),
                     style: const TextStyle(
                       fontWeight: FontWeight.w900,
                       color: V2ETTokens.textPrimary,
@@ -95,7 +110,8 @@ class V2ETResetPasswordPage extends StatelessWidget {
               style: V2ETTokens.small,
             ),
             const SizedBox(height: 26),
-            const V2ETInput(
+            V2ETInput(
+              controller: _emailController,
               hintText: '请输入邮箱地址',
               prefixIcon: Icons.mail_outline_rounded,
               height: 40,
@@ -106,7 +122,11 @@ class V2ETResetPasswordPage extends StatelessWidget {
               tone: V2ETButtonTone.dark,
               height: 42,
               width: double.infinity,
-              onPressed: () {},
+              onPressed: () async {
+                final email = _emailController.text.trim();
+                if (email.isEmpty) return;
+                await widget.onSendVerifyCode(email, true);
+              },
             ),
             const SizedBox(height: 26),
             Row(
@@ -132,7 +152,7 @@ class V2ETResetPasswordPage extends StatelessWidget {
                   ),
                 ),
                 TextButton(
-                  onPressed: onLogin,
+                  onPressed: widget.onLogin,
                   child: const Text(
                     '返回登录',
                     style: TextStyle(
