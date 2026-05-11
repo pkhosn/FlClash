@@ -9,6 +9,7 @@ import 'package:fl_clash/providers/config.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 
 import '../../theme/provider_tokens.dart';
+import '../../widgets/app_notice.dart';
 import '../../widgets/app_button.dart';
 import '../../widgets/app_card.dart';
 
@@ -105,9 +106,7 @@ class V2ETProviderSettingsPage extends ConsumerWidget {
               onPressed: () {
                 final next = int.tryParse(controller.text.trim());
                 if (next == null || next < 1024 || next > 49151) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('端口范围必须在 1024-49151')),
-                  );
+                  V2ETNotice.error(context, '端口范围必须在 1024-49151');
                   return;
                 }
                 ref
@@ -257,9 +256,7 @@ class _ProxySettingsCard extends StatelessWidget {
                   onPressed: () async {
                     await Clipboard.setData(ClipboardData(text: localAddress));
                     if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('已复制代理地址')),
-                      );
+                      V2ETNotice.success(context, '代理地址已复制');
                     }
                   },
                 ),
@@ -462,14 +459,10 @@ class _GeoDataCardState extends ConsumerState<_GeoDataCard> {
       );
       if (message.isNotEmpty) throw message;
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$key 更新成功')),
-      );
+      V2ETNotice.success(context, '$key 更新成功');
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$key 更新失败: $e')),
-      );
+      V2ETNotice.error(context, '$key 更新失败: $e');
     } finally {
       if (mounted) {
         setState(() => _updating[key] = false);

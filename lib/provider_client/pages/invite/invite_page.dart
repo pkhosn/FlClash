@@ -6,6 +6,7 @@ import '../../data/v2et_runtime_providers.dart';
 import '../../theme/provider_tokens.dart';
 import '../../widgets/app_button.dart';
 import '../../widgets/app_card.dart';
+import '../../widgets/app_notice.dart';
 
 class V2ETInvitePage extends ConsumerStatefulWidget {
   const V2ETInvitePage({super.key});
@@ -255,15 +256,11 @@ class _V2ETInvitePageState extends ConsumerState<V2ETInvitePage> {
       final code = await ref.read(v2etBridgeProvider).generateInviteCode();
       if (!mounted) return;
       setState(() => _manualCode = code);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('邀请码已创建')));
+      V2ETNotice.success(context, '邀请码已创建');
       ref.invalidate(v2etInviteProvider);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('创建邀请码失败: $e')));
+      V2ETNotice.error(context, '创建邀请码失败: $e');
     } finally {
       if (mounted) setState(() => _creating = false);
     }

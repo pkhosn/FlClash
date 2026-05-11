@@ -6,6 +6,7 @@ import '../../theme/provider_tokens.dart';
 import '../../widgets/app_button.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/app_input.dart';
+import '../../widgets/app_notice.dart';
 
 class V2ETProfileCenterPage extends ConsumerWidget {
   const V2ETProfileCenterPage({super.key});
@@ -71,7 +72,6 @@ class _AccountHeroCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 156,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: const Color(0xFF4D8DF7),
@@ -101,38 +101,42 @@ class _AccountHeroCard extends StatelessWidget {
               color: Colors.white.withValues(alpha: 0.12),
             ),
           ),
-          Row(
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 58,
-                height: 58,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: const Color(0xFFBFD8FF), width: 4),
-                ),
-                child: const Icon(
-                  Icons.person_rounded,
-                  color: V2ETTokens.primary,
-                  size: 34,
-                ),
+              Row(
+                children: [
+                  Container(
+                    width: 58,
+                    height: 58,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: const Color(0xFFBFD8FF), width: 4),
+                    ),
+                    child: const Icon(
+                      Icons.person_rounded,
+                      color: V2ETTokens.primary,
+                      size: 34,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Text(
+                      email,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 14),
-              Text(
-                email,
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.white,
-                ),
-              ),
-            ],
-          ),
-          Positioned(
-            left: 68,
-            right: 0,
-            bottom: 2,
-            child: Row(
+              const SizedBox(height: 18),
+              Row(
               children: [
                 Expanded(
                   child: _HeroMetric(
@@ -147,7 +151,6 @@ class _AccountHeroCard extends StatelessWidget {
                     icon: Icons.account_balance_wallet_rounded,
                     label: '余额',
                     value: '¥${balance.toStringAsFixed(2)}',
-                    chip: '充值',
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -160,7 +163,8 @@ class _AccountHeroCard extends StatelessWidget {
                 ),
               ],
             ),
-          ),
+            ],
+          )
         ],
       ),
     );
@@ -172,12 +176,10 @@ class _HeroMetric extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.value,
-    this.chip,
   });
   final IconData icon;
   final String label;
   final String value;
-  final String? chip;
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -209,24 +211,6 @@ class _HeroMetric extends StatelessWidget {
                 fontWeight: FontWeight.w900,
               ),
             ),
-            if (chip != null) ...[
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                decoration: BoxDecoration(
-                  color: Colors.white24,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  chip!,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-            ],
           ],
         ),
       ],
@@ -345,28 +329,20 @@ class _SecurityCard extends StatelessWidget {
                     final newPassword = newController.text;
                     final confirmPassword = confirmController.text;
                     if (oldPassword.isEmpty || newPassword.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('请完整填写密码')),
-                      );
+                      V2ETNotice.error(context, '请完整填写密码');
                       return;
                     }
                     if (newPassword != confirmPassword) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('两次新密码不一致')),
-                      );
+                      V2ETNotice.error(context, '两次新密码不一致');
                       return;
                     }
                     try {
                       await onChangePassword(oldPassword, newPassword);
                       if (!context.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('密码修改成功')),
-                      );
+                      V2ETNotice.success(context, '密码修改成功');
                     } catch (e) {
                       if (!context.mounted) return;
-                      ScaffoldMessenger.of(
-                        context,
-                      ).showSnackBar(SnackBar(content: Text('修改失败: $e')));
+                      V2ETNotice.error(context, '修改失败: $e');
                     }
                   },
                 ),

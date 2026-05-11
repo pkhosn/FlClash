@@ -288,9 +288,10 @@ class FlClashV2etBridge implements V2etBridge {
     final expiredAt = expiredAtTs > 0
         ? DateTime.fromMillisecondsSinceEpoch(expiredAtTs * 1000)
         : null;
+    final planName = _extractPlanName(payload);
     return V2etSubscription(
       subscriptionUrl: subUri,
-      planName: payload['plan_name']?.toString() ?? payload['plan']?.toString(),
+      planName: planName,
       expiredAt: expiredAt,
       transferEnableBytes: transferEnable > 0 ? transferEnable : null,
       usedBytes: used > 0 ? used : null,
@@ -313,7 +314,7 @@ class FlClashV2etBridge implements V2etBridge {
     final commissionBalance = _normalizeCurrency(
       _toDouble(payload['commission_balance']),
     );
-    final planName = payload['plan_name']?.toString();
+    final planName = _extractPlanName(payload);
     return V2etUserInfo(
       email: email.isEmpty ? session.email : email,
       balance: balance,
@@ -486,16 +487,47 @@ class FlClashV2etBridge implements V2etBridge {
           ? amountRaw.toDouble()
           : double.tryParse('$amountRaw') ?? 0;
       final ts = _toInt(item['created_at']);
+      final planName = _extractPlanName(item);
       return V2etOrder(
         tradeNo: tradeNo,
         status: status,
         totalAmount: totalAmount,
-        planName: item['plan_name']?.toString() ?? item['plan']?.toString(),
+        planName: planName,
         createdAt: ts > 0
             ? DateTime.fromMillisecondsSinceEpoch(ts * 1000)
             : null,
       );
     }).toList();
+  }
+
+  String? _extractPlanName(Map payload) {
+    final fromPlanName = _cleanPlanName(payload['plan_name']);
+    if (fromPlanName != null) return fromPlanName;
+    final plan = payload['plan'];
+    if (plan is Map) {
+      final fromMapName = _cleanPlanName(plan['name']);
+      if (fromMapName != null) return fromMapName;
+      final fromMapTitle = _cleanPlanName(plan['title']);
+      if (fromMapTitle != null) return fromMapTitle;
+    }
+    return _cleanPlanName(plan);
+  }
+
+  String? _cleanPlanName(dynamic value) {
+    if (value == null) return null;
+    final text = value.toString().trim();
+    if (text.isEmpty) return null;
+    if (text.startsWith('{') || text.startsWith('[')) return null;
+    if (text.contains('month_price') ||
+        text.contains('quarter_price') ||
+        text.contains('half_year_price') ||
+        text.contains('year_price') ||
+        text.contains('onetime_price') ||
+        text.contains('support') ||
+        text.contains('feature')) {
+      return null;
+    }
+    return text;
   }
 
   Future<List<V2etNotice>> _fetchNotices() async {

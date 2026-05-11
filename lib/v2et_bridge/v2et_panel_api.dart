@@ -251,26 +251,35 @@ class V2etPanelApi {
     required String accessToken,
   }) async {
     final uri = _join(baseUrl, '/api/v1/user/invite/save');
-    final response = await _dio.getUri<Map<String, dynamic>>(
-      uri,
-      options: Options(
-        headers: {
-          'Accept': 'application/json,text/plain,*/*',
-          'Authorization': accessToken,
-        },
-        responseType: ResponseType.json,
-      ),
+    final options = Options(
+      headers: {
+        'Accept': 'application/json,text/plain,*/*',
+        'Authorization': accessToken,
+      },
+      responseType: ResponseType.json,
     );
-    final body = response.data ?? const <String, dynamic>{};
-    final data = body['data'];
-    if (data is String && data.trim().isNotEmpty) {
-      return data.trim();
+    Map<String, dynamic> body;
+    try {
+      final response = await _dio.postUri<Map<String, dynamic>>(
+        uri,
+        data: const <String, dynamic>{},
+        options: options,
+      );
+      body = response.data ?? const <String, dynamic>{};
+    } on DioException {
+      final response = await _dio.getUri<Map<String, dynamic>>(
+        uri,
+        options: options,
+      );
+      body = response.data ?? const <String, dynamic>{};
     }
+    final data = body['data'];
+    if (data is String && data.trim().isNotEmpty) return data.trim();
     if (data is Map) {
       final code = '${data['code'] ?? data['invite_code'] ?? ''}'.trim();
       if (code.isNotEmpty) return code;
     }
-    throw StateError('invite code missing');
+    throw StateError('${body['message'] ?? 'invite code missing'}');
   }
 
   Future<void> cancelOrder({

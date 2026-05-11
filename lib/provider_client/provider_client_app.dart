@@ -18,6 +18,7 @@ import 'app_shell/provider_client_page.dart';
 import 'widgets/provider_window_frame.dart';
 import 'widgets/provider_sidebar.dart';
 import 'widgets/auth_background.dart';
+import 'widgets/app_notice.dart';
 import 'pages/auth/login_page.dart';
 import 'pages/auth/register_page.dart';
 import 'pages/auth/reset_password_page.dart';
@@ -535,8 +536,11 @@ class _V2ETAuthGateState extends ConsumerState<V2ETAuthGate> {
 
   void _showToast(String text) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+    if (text.contains('失败') || text.contains('错误')) {
+      V2ETNotice.error(context, text);
+    } else {
+      V2ETNotice.info(context, text);
+    }
   }
 }
 
@@ -681,15 +685,11 @@ class _ProviderClientAppShellState
                             ref.invalidate(v2etSubscriptionProvider);
                             ref.invalidate(v2etInviteProvider);
                             if (!mounted) return;
-                            ScaffoldMessenger.of(this.context).showSnackBar(
-                              const SnackBar(content: Text('兑换成功')),
-                            );
+                            V2ETNotice.success(this.context, '兑换成功');
                           } catch (e) {
                             setDialogState(() => submitting = false);
                             if (!mounted) return;
-                            ScaffoldMessenger.of(this.context).showSnackBar(
-                              SnackBar(content: Text('兑换失败: $e')),
-                            );
+                            V2ETNotice.error(this.context, '兑换失败: $e');
                           }
                         },
                   child: submitting
