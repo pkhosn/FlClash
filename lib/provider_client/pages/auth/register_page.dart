@@ -14,6 +14,9 @@ class V2ETRegisterPage extends StatefulWidget {
     required this.crispWebsiteId,
     required this.authBackgroundUrl,
     required this.emailSuffixes,
+    required this.whitelistEnabled,
+    required this.requireEmailVerify,
+    required this.requireInviteCode,
     required this.languageCode,
     required this.onLanguageTap,
     required this.onThemeToggle,
@@ -29,6 +32,9 @@ class V2ETRegisterPage extends StatefulWidget {
   final String crispWebsiteId;
   final String authBackgroundUrl;
   final List<String> emailSuffixes;
+  final bool whitelistEnabled;
+  final bool requireEmailVerify;
+  final bool requireInviteCode;
   final String languageCode;
   final VoidCallback onLanguageTap;
   final VoidCallback onThemeToggle;
@@ -41,6 +47,7 @@ class V2ETRegisterPage extends StatefulWidget {
     required String password,
     required String confirmPassword,
     required String emailCode,
+    required String inviteCode,
   })
   onSubmitRegister;
 
@@ -54,6 +61,7 @@ class _V2ETRegisterPageState extends State<V2ETRegisterPage> {
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
   final _codeController = TextEditingController();
+  final _inviteController = TextEditingController();
   bool _submitting = false;
   bool _sendingCode = false;
   final _supportButtonKey = GlobalKey();
@@ -72,6 +80,7 @@ class _V2ETRegisterPageState extends State<V2ETRegisterPage> {
     _passwordController.dispose();
     _confirmController.dispose();
     _codeController.dispose();
+    _inviteController.dispose();
     super.dispose();
   }
 
@@ -154,22 +163,29 @@ class _V2ETRegisterPageState extends State<V2ETRegisterPage> {
             Row(
               children: [
                 Expanded(
-                  child: V2ETInput(
-                    controller: _userController,
-                    hintText: isEn ? 'Email username' : '邮箱用户名',
-                    prefixIcon: Icons.mail_outline_rounded,
-                    height: 40,
+                  child: widget.whitelistEnabled
+                      ? V2ETInput(
+                          controller: _userController,
+                          hintText: isEn ? 'Email username' : '邮箱用户名',
+                          prefixIcon: Icons.mail_outline_rounded,
+                          height: 40,
+                        )
+                      : V2ETInput(
+                          controller: _userController,
+                          hintText: isEn ? 'Email address' : '请输入完整邮箱',
+                          prefixIcon: Icons.mail_outline_rounded,
+                          height: 40,
+                        ),
+                ),
+                if (widget.whitelistEnabled) ...[
+                  const SizedBox(width: 8),
+                  _EmailSuffixMenu(
+                    selected: selectedSuffix,
+                    items: widget.emailSuffixes,
+                    isDark: isDark,
+                    onSelected: (v) => setState(() => selectedSuffix = v),
                   ),
-                ),
-                const SizedBox(width: 8),
-                _EmailSuffixMenu(
-                  selected: selectedSuffix,
-                  items: widget.emailSuffixes.isEmpty
-                      ? const ['qq.com']
-                      : widget.emailSuffixes,
-                  isDark: isDark,
-                  onSelected: (v) => setState(() => selectedSuffix = v),
-                ),
+                ],
               ],
             ),
             const SizedBox(height: 12),
@@ -189,42 +205,47 @@ class _V2ETRegisterPageState extends State<V2ETRegisterPage> {
               height: 40,
             ),
             const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: V2ETInput(
-                    controller: _codeController,
-                    hintText: isEn ? '6-digit email code' : '请输入6位验证码',
-                    prefixIcon: Icons.verified_outlined,
-                    height: 40,
+            if (widget.requireEmailVerify) ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: V2ETInput(
+                      controller: _codeController,
+                      hintText: isEn ? '6-digit email code' : '请输入6位验证码',
+                      prefixIcon: Icons.verified_outlined,
+                      height: 40,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 10),
-                V2ETButton(
-                  label: _sendingCode ? (isEn ? 'Sending' : '发送中') : (isEn ? 'Send' : '发送'),
-                  tone: V2ETButtonTone.dark,
-                  width: 62,
-                  height: 40,
-                  onPressed: _sendingCode
-                      ? null
-                      : () async {
-                          final email = _buildEmail();
-                          if (email == null) return;
-                          setState(() => _sendingCode = true);
-                          try {
-                            await widget.onSendVerifyCode(email, false);
-                          } finally {
-                            if (mounted) {
-                              setState(() => _sendingCode = false);
+                  const SizedBox(width: 10),
+                  V2ETButton(
+                    label: _sendingCode ? (isEn ? 'Sending' : '发送中') : (isEn ? 'Send' : '发送'),
+                    tone: V2ETButtonTone.dark,
+                    width: 62,
+                    height: 40,
+                    onPressed: _sendingCode
+                        ? null
+                        : () async {
+                            final email = _buildEmail();
+                            if (email == null) return;
+                            setState(() => _sendingCode = true);
+                            try {
+                              await widget.onSendVerifyCode(email, false);
+                            } finally {
+                              if (mounted) {
+                                setState(() => _sendingCode = false);
+                              }
                             }
-                          }
-                        },
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
+                          },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+            ],
             V2ETInput(
-              hintText: isEn ? 'Invite code (optional)' : '请输入邀请码',
+              controller: _inviteController,
+              hintText: widget.requireInviteCode
+                  ? (isEn ? 'Invite code (required)' : '邀请码（必填）')
+                  : (isEn ? 'Invite code (optional)' : '请输入邀请码'),
               prefixIcon: Icons.card_giftcard_rounded,
               height: 40,
             ),
@@ -246,6 +267,7 @@ class _V2ETRegisterPageState extends State<V2ETRegisterPage> {
                           password: _passwordController.text,
                           confirmPassword: _confirmController.text,
                           emailCode: _codeController.text.trim(),
+                          inviteCode: _inviteController.text.trim(),
                         );
                       } finally {
                         if (mounted) {
@@ -306,6 +328,7 @@ class _V2ETRegisterPageState extends State<V2ETRegisterPage> {
   String? _buildEmail() {
     final user = _userController.text.trim();
     if (user.isEmpty) return null;
+    if (!widget.whitelistEnabled) return user;
     return '$user@$selectedSuffix';
   }
 
@@ -338,17 +361,23 @@ class _EmailSuffixMenu extends StatelessWidget {
       initialValue: selected,
       color: isDark ? const Color(0xFF1F2B3C) : Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      constraints: const BoxConstraints(minWidth: 168, maxWidth: 220),
+      elevation: 10,
       onSelected: onSelected,
       itemBuilder: (context) {
         return items
             .map(
               (e) => PopupMenuItem<String>(
                 value: e,
-                child: Text(
-                  e,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    color: isDark ? V2ETTokens.darkTextPrimary : V2ETTokens.textPrimary,
+                child: Container(
+                  height: 36,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    '@$e',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: isDark ? V2ETTokens.darkTextPrimary : V2ETTokens.textPrimary,
+                    ),
                   ),
                 ),
               ),

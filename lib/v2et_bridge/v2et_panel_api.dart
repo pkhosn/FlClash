@@ -35,7 +35,13 @@ class V2etPanelApi {
     final uri = _join(baseUrl, '/api/v1/passport/comm/sendEmailVerify');
     await _dio.postUri<Map<String, dynamic>>(
       uri,
-      data: {'email': email, 'isForgetPassword': isForgetPassword ? 1 : 0},
+      data: {
+        'email': email,
+        // v2board backend expects isforget
+        'isforget': isForgetPassword ? 1 : 0,
+        // keep compatibility for forks
+        'isForgetPassword': isForgetPassword ? 1 : 0,
+      },
       options: Options(
         headers: const {'Accept': 'application/json,text/plain,*/*'},
         responseType: ResponseType.json,
@@ -65,11 +71,18 @@ class V2etPanelApi {
     required String email,
     required String password,
     required String emailCode,
+    String? inviteCode,
   }) async {
     final uri = _join(baseUrl, '/api/v1/passport/auth/register');
     final response = await _dio.postUri<Map<String, dynamic>>(
       uri,
-      data: {'email': email, 'password': password, 'email_code': emailCode},
+      data: {
+        'email': email,
+        'password': password,
+        'email_code': emailCode,
+        if ((inviteCode ?? '').trim().isNotEmpty)
+          'invite_code': inviteCode!.trim(),
+      },
       options: Options(
         headers: const {'Accept': 'application/json,text/plain,*/*'},
         responseType: ResponseType.json,

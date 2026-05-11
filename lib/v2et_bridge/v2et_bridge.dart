@@ -123,6 +123,7 @@ abstract class V2etAuthGateway {
     required String email,
     required String password,
     required String emailCode,
+    String? inviteCode,
   });
 }
 

@@ -138,12 +138,14 @@ class FlClashV2etBridge implements V2etBridge {
     required String email,
     required String password,
     required String emailCode,
+    String? inviteCode,
   }) async {
     final token = await _panelApi.register(
       baseUrl: baseUrl,
       email: email,
       password: password,
       emailCode: emailCode,
+      inviteCode: inviteCode,
     );
     await _sessionStore.save(
       V2etSession(baseUrl: baseUrl, email: email.trim(), accessToken: token),

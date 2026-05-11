@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:flutter/foundation.dart';
 import '../../theme/provider_tokens.dart';
-import '../../widgets/app_input.dart';
 
 Future<void> showV2ETCustomerServiceDialog(
   BuildContext context, {
@@ -114,10 +112,6 @@ class _V2ETCustomerServiceDialogState extends State<V2ETCustomerServiceDialog> {
   Widget build(BuildContext context) {
     final crispId = widget.crispWebsiteId.trim();
     final hasCrisp = crispId.isNotEmpty && _controller != null;
-    final isDesktop =
-        defaultTargetPlatform == TargetPlatform.windows ||
-        defaultTargetPlatform == TargetPlatform.linux ||
-        defaultTargetPlatform == TargetPlatform.macOS;
     return Container(
         decoration: BoxDecoration(
           color: Colors.white,
@@ -167,29 +161,8 @@ class _V2ETCustomerServiceDialogState extends State<V2ETCustomerServiceDialog> {
                 ],
               ),
             ),
-            if (!hasCrisp || isDesktop)
-              Container(
-                height: 168,
-                width: double.infinity,
-                padding: const EdgeInsets.all(18),
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Color(0xFFE92724), Color(0xFFF53227)],
-                  ),
-                ),
-                child: Center(
-                  child: Text(
-                    crispId.isEmpty ? '未配置 Crisp website_id' : '客服加载受限，已切换安全模式',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ),
-              ),
             Expanded(
-              child: hasCrisp && !isDesktop
+              child: hasCrisp
                   ? Stack(
                       children: [
                         Positioned.fill(child: WebViewWidget(controller: _controller!)),
@@ -202,107 +175,23 @@ class _V2ETCustomerServiceDialogState extends State<V2ETCustomerServiceDialog> {
                           ),
                       ],
                     )
-                  : Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Container(
-                                width: 24,
-                                height: 24,
-                                decoration: const BoxDecoration(
-                                  color: V2ETTokens.primary,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(
-                                  Icons.pets_rounded,
-                                  color: Colors.white,
-                                  size: 16,
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 10,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: V2ETTokens.cardSoft,
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                                child: const Text(
-                                  '可点击右上角刷新按钮，外部打开客服窗口',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            ],
+                  : Center(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Text(
+                          crispId.isEmpty
+                              ? '未配置 Crisp website_id'
+                              : (_errorText ?? '客服页面加载失败，请点击刷新重试'),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: V2ETTokens.textSecondary,
                           ),
-                          if ((_errorText ?? '').isNotEmpty) ...[
-                            const SizedBox(height: 12),
-                            Text(
-                              _errorText!,
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: V2ETTokens.textMuted,
-                              ),
-                            ),
-                          ],
-                          const Spacer(),
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              border: Border.all(color: V2ETTokens.border),
-                              borderRadius: BorderRadius.circular(18),
-                            ),
-                            child: Column(
-                              children: [
-                                const V2ETInput(hintText: '输入你的信息...', height: 38),
-                                const SizedBox(height: 10),
-                                Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.emoji_emotions_outlined,
-                                      color: V2ETTokens.textSecondary,
-                                    ),
-                                    const SizedBox(width: 12),
-                                    const Icon(
-                                      Icons.attach_file_rounded,
-                                      color: V2ETTokens.textSecondary,
-                                    ),
-                                    const Spacer(),
-                                    Icon(
-                                      Icons.send_rounded,
-                                      color: V2ETTokens.textMuted.withValues(
-                                        alpha: 0.7,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                     ),
             ),
-            const SizedBox(height: 8),
-            Center(
-              child: Text(
-                hasCrisp
-                    ? '我们运行于  💬 crisp · $crispId'
-                    : '我们运行于  💬 crisp',
-                style: V2ETTokens.small.copyWith(
-                  color: V2ETTokens.textMuted,
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
           ],
         ),
       );

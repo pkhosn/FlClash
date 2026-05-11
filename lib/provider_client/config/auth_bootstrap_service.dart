@@ -4,10 +4,16 @@ class AuthBootstrapData {
   const AuthBootstrapData({
     required this.emailSuffixes,
     required this.languages,
+    required this.requireEmailVerify,
+    required this.requireInviteCode,
+    required this.whitelistEnabled,
   });
 
   final List<String> emailSuffixes;
   final List<String> languages;
+  final bool requireEmailVerify;
+  final bool requireInviteCode;
+  final bool whitelistEnabled;
 }
 
 class AuthBootstrapService {
@@ -21,8 +27,11 @@ class AuthBootstrapService {
     final suffixes = _extractSuffixes(data);
     final langs = _extractLanguages(data);
     return AuthBootstrapData(
-      emailSuffixes: suffixes.isEmpty ? const ['qq.com'] : suffixes,
+      emailSuffixes: suffixes,
       languages: langs.isEmpty ? const ['zh-CN', 'en-US'] : langs,
+      requireEmailVerify: _toBool(data['is_email_verify'] ?? data['email_verify']),
+      requireInviteCode: _toBool(data['is_invite_force'] ?? data['invite_force']),
+      whitelistEnabled: suffixes.isNotEmpty,
     );
   }
 
@@ -55,8 +64,13 @@ class AuthBootstrapService {
   }
 
   List<String> _extractSuffixes(Map data) {
+    final whiteListRaw = data['email_whitelist_suffix'];
+    // v2board: when whitelist disabled this value is usually 0
+    if (whiteListRaw == 0 || whiteListRaw == '0' || whiteListRaw == false) {
+      return const <String>[];
+    }
     final candidates = [
-      data['email_whitelist_suffix'],
+      whiteListRaw,
       data['emailSuffix'],
       data['email_suffix'],
       data['email_domain'],
@@ -70,6 +84,13 @@ class AuthBootstrapService {
       if (list.isNotEmpty) return list;
     }
     return const <String>[];
+  }
+
+  bool _toBool(dynamic value) {
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    final s = '$value'.trim().toLowerCase();
+    return s == '1' || s == 'true' || s == 'yes';
   }
 
   List<String> _normalizeSuffixList(dynamic raw) {

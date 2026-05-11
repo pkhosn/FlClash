@@ -84,6 +84,9 @@ class _V2ETAuthGateState extends ConsumerState<V2ETAuthGate> {
   List<String> _emailSuffixes = const ['qq.com'];
   List<String> _languageCodes = const ['zh-CN', 'en-US'];
   String _languageCode = 'zh-CN';
+  bool _requireEmailVerify = true;
+  bool _requireInviteCode = false;
+  bool _whitelistEnabled = false;
   List<ApiHealthItem> _apiHealthItems = const [];
 
   bool get _isDarkMode {
@@ -144,6 +147,9 @@ class _V2ETAuthGateState extends ConsumerState<V2ETAuthGate> {
         crispWebsiteId: appConfig.crispWebsiteId,
         authBackgroundUrl: appConfig.authBackgroundUrl,
         emailSuffixes: _emailSuffixes,
+        whitelistEnabled: _whitelistEnabled,
+        requireEmailVerify: _requireEmailVerify,
+        requireInviteCode: _requireInviteCode,
         languageCode: _languageCode,
         onLanguageTap: _cycleLanguage,
         onThemeToggle: _toggleThemeMode,
@@ -361,6 +367,9 @@ class _V2ETAuthGateState extends ConsumerState<V2ETAuthGate> {
         final data = await AuthBootstrapService().fetch(baseUrl);
         _emailSuffixes = data.emailSuffixes;
         _languageCodes = data.languages;
+        _requireEmailVerify = data.requireEmailVerify;
+        _requireInviteCode = data.requireInviteCode;
+        _whitelistEnabled = data.whitelistEnabled;
         if (_languageCodes.isNotEmpty &&
             !_languageCodes.contains(_languageCode)) {
           _languageCode = _languageCodes.first;
@@ -479,7 +488,16 @@ class _V2ETAuthGateState extends ConsumerState<V2ETAuthGate> {
     required String password,
     required String confirmPassword,
     required String emailCode,
+    required String inviteCode,
   }) async {
+    if (_requireEmailVerify && emailCode.isEmpty) {
+      _showToast('请输入邮箱验证码');
+      return;
+    }
+    if (_requireInviteCode && inviteCode.isEmpty) {
+      _showToast('邀请码为必填项');
+      return;
+    }
     if (password != confirmPassword) {
       _showToast('两次输入密码不一致');
       return;
@@ -499,6 +517,7 @@ class _V2ETAuthGateState extends ConsumerState<V2ETAuthGate> {
           email: email,
           password: password,
           emailCode: emailCode,
+          inviteCode: inviteCode,
         );
         _showToast('注册成功，请登录');
         if (!mounted) return;
@@ -530,32 +549,46 @@ class ProviderClientAppShell extends ConsumerStatefulWidget {
 class _ProviderClientAppShellState
     extends ConsumerState<ProviderClientAppShell> {
   ProviderClientPage current = ProviderClientPage.dashboard;
+  final GlobalKey _supportButtonKey = GlobalKey();
 
   @override
   Widget build(BuildContext context) {
     final appConfig = ref.watch(appConfigProvider);
-    return Row(
+    return Stack(
       children: [
-        ProviderSidebar(
-          current: current,
-          onChanged: (page) => setState(() => current = page),
-          onSupport: () => showV2ETCustomerServiceDialog(
-            context,
-            crispWebsiteId: appConfig.crispWebsiteId,
-          ),
-          onSupportWithRect: (rect) => showV2ETCustomerServiceDialog(
-            context,
-            crispWebsiteId: appConfig.crispWebsiteId,
-            anchorRect: rect,
-          ),
-          onLogout: widget.onLogout,
+        Row(
+          children: [
+            ProviderSidebar(
+              current: current,
+              onChanged: (page) => setState(() => current = page),
+              onLogout: widget.onLogout,
+            ),
+            Expanded(
+              child: Container(
+                color: V2ETTokens.background,
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 180),
+                  child: KeyedSubtree(key: ValueKey(current), child: _page()),
+                ),
+              ),
+            ),
+          ],
         ),
-        Expanded(
-          child: Container(
-            color: V2ETTokens.background,
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 180),
-              child: KeyedSubtree(key: ValueKey(current), child: _page()),
+        Positioned(
+          right: 24,
+          bottom: 24,
+          child: FloatingActionButton(
+            key: _supportButtonKey,
+            mini: true,
+            backgroundColor: V2ETTokens.primary,
+            onPressed: () => showV2ETCustomerServiceDialog(
+              context,
+              crispWebsiteId: appConfig.crispWebsiteId,
+              anchorRect: _supportAnchorRect(),
+            ),
+            child: const Icon(
+              Icons.support_agent_rounded,
+              color: Colors.white,
             ),
           ),
         ),
@@ -579,5 +612,14 @@ class _ProviderClientAppShellState
       case ProviderClientPage.settings:
         return const V2ETProviderSettingsPage();
     }
+  }
+
+  Rect? _supportAnchorRect() {
+    final currentContext = _supportButtonKey.currentContext;
+    if (currentContext == null) return null;
+    final box = currentContext.findRenderObject();
+    if (box is! RenderBox) return null;
+    final offset = box.localToGlobal(Offset.zero);
+    return offset & box.size;
   }
 }
