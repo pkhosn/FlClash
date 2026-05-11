@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 import '../../theme/provider_tokens.dart';
 import '../../widgets/app_input.dart';
 
@@ -17,13 +18,43 @@ Future<void> showV2ETCustomerServiceDialog(
   );
 }
 
-class V2ETCustomerServiceDialog extends StatelessWidget {
+class V2ETCustomerServiceDialog extends StatefulWidget {
   const V2ETCustomerServiceDialog({super.key, this.crispWebsiteId = ''});
 
   final String crispWebsiteId;
 
   @override
+  State<V2ETCustomerServiceDialog> createState() =>
+      _V2ETCustomerServiceDialogState();
+}
+
+class _V2ETCustomerServiceDialogState extends State<V2ETCustomerServiceDialog> {
+  WebViewController? _controller;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    final crispId = widget.crispWebsiteId.trim();
+    if (crispId.isEmpty) return;
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onPageFinished: (_) {
+            if (mounted) setState(() => _loading = false);
+          },
+        ),
+      )
+      ..loadRequest(
+        Uri.parse('https://go.crisp.chat/chat/embed/?website_id=$crispId'),
+      );
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final crispId = widget.crispWebsiteId.trim();
+    final hasCrisp = crispId.isNotEmpty && _controller != null;
     return Align(
       alignment: Alignment.centerRight,
       child: Container(
@@ -55,7 +86,12 @@ class V2ETCustomerServiceDialog extends StatelessWidget {
                   ),
                   const Spacer(),
                   IconButton(
-                    onPressed: () {},
+                    onPressed: hasCrisp
+                        ? () {
+                            setState(() => _loading = true);
+                            _controller!.reload();
+                          }
+                        : null,
                     icon: const Icon(
                       Icons.refresh_rounded,
                       color: Colors.white,
@@ -68,198 +104,134 @@ class V2ETCustomerServiceDialog extends StatelessWidget {
                 ],
               ),
             ),
-            Container(
-              height: 168,
-              width: double.infinity,
-              padding: const EdgeInsets.all(18),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Color(0xFFE92724), Color(0xFFF53227)],
+            if (!hasCrisp)
+              Container(
+                height: 168,
+                width: double.infinity,
+                padding: const EdgeInsets.all(18),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xFFE92724), Color(0xFFF53227)],
+                  ),
                 ),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    height: 38,
-                    padding: const EdgeInsets.symmetric(horizontal: 18),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFD51F1B),
-                      borderRadius: BorderRadius.circular(22),
-                      boxShadow: const [V2ETTokens.tinyShadow],
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.chat_bubble_rounded, color: Colors.white),
-                        SizedBox(width: 8),
-                        Text(
-                          '聊天',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: const [
-                      _CircleIcon(icon: Icons.chat_bubble_outline),
-                      SizedBox(width: 8),
-                      _CircleIcon(
-                        icon: Icons.contact_support_outlined,
-                        label: '客服',
-                      ),
-                      SizedBox(width: 8),
-                      _CircleIcon(icon: Icons.pets_rounded),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    '有疑问吗？联系我们！',
+                child: const Center(
+                  child: Text(
+                    '未配置 Crisp website_id',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 14,
                       fontWeight: FontWeight.w900,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    '◷ 上次活动 2026/4/29',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
             Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+              child: hasCrisp
+                  ? Stack(
                       children: [
-                        Container(
-                          width: 24,
-                          height: 24,
-                          decoration: const BoxDecoration(
-                            color: V2ETTokens.primary,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.pets_rounded,
-                            color: Colors.white,
-                            size: 16,
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 10,
-                          ),
-                          decoration: BoxDecoration(
-                            color: V2ETTokens.cardSoft,
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: const Text(
-                            '请问有什么可以帮您 即时消息?',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
+                        Positioned.fill(child: WebViewWidget(controller: _controller!)),
+                        if (_loading)
+                          const Positioned.fill(
+                            child: ColoredBox(
+                              color: Colors.white,
+                              child: Center(child: CircularProgressIndicator()),
                             ),
                           ),
-                        ),
                       ],
-                    ),
-                    const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: V2ETTokens.border),
-                        borderRadius: BorderRadius.circular(18),
-                      ),
+                    )
+                  : Padding(
+                      padding: const EdgeInsets.all(16),
                       child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const V2ETInput(hintText: '输入你的信息...', height: 38),
-                          const SizedBox(height: 10),
                           Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Icon(
-                                Icons.emoji_emotions_outlined,
-                                color: V2ETTokens.textSecondary,
+                              Container(
+                                width: 24,
+                                height: 24,
+                                decoration: const BoxDecoration(
+                                  color: V2ETTokens.primary,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.pets_rounded,
+                                  color: Colors.white,
+                                  size: 16,
+                                ),
                               ),
-                              const SizedBox(width: 12),
-                              const Icon(
-                                Icons.attach_file_rounded,
-                                color: V2ETTokens.textSecondary,
-                              ),
-                              const Spacer(),
-                              Icon(
-                                Icons.send_rounded,
-                                color: V2ETTokens.textMuted.withValues(
-                                  alpha: 0.7,
+                              const SizedBox(width: 10),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 10,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: V2ETTokens.cardSoft,
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: const Text(
+                                  '请在对象存储配置 crisp.website_id',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                               ),
                             ],
                           ),
+                          const Spacer(),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: V2ETTokens.border),
+                              borderRadius: BorderRadius.circular(18),
+                            ),
+                            child: Column(
+                              children: [
+                                const V2ETInput(hintText: '输入你的信息...', height: 38),
+                                const SizedBox(height: 10),
+                                Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.emoji_emotions_outlined,
+                                      color: V2ETTokens.textSecondary,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    const Icon(
+                                      Icons.attach_file_rounded,
+                                      color: V2ETTokens.textSecondary,
+                                    ),
+                                    const Spacer(),
+                                    Icon(
+                                      Icons.send_rounded,
+                                      color: V2ETTokens.textMuted.withValues(
+                                        alpha: 0.7,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    Center(
-                      child: Text(
-                        crispWebsiteId.isEmpty
-                            ? '我们运行于  💬 crisp'
-                            : '我们运行于  💬 crisp · $crispWebsiteId',
-                        style: V2ETTokens.small.copyWith(
-                          color: V2ETTokens.textMuted,
-                        ),
-                      ),
-                    ),
-                  ],
+            ),
+            const SizedBox(height: 8),
+            Center(
+              child: Text(
+                hasCrisp
+                    ? '我们运行于  💬 crisp · $crispId'
+                    : '我们运行于  💬 crisp',
+                style: V2ETTokens.small.copyWith(
+                  color: V2ETTokens.textMuted,
                 ),
               ),
             ),
+            const SizedBox(height: 8),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _CircleIcon extends StatelessWidget {
-  const _CircleIcon({required this.icon, this.label});
-  final IconData icon;
-  final String? label;
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 44,
-      height: 44,
-      decoration: const BoxDecoration(
-        color: V2ETTokens.primary,
-        shape: BoxShape.circle,
-      ),
-      child: Center(
-        child: label == null
-            ? Icon(icon, color: Colors.white)
-            : Text(
-                label!,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
       ),
     );
   }
