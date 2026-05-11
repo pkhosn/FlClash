@@ -21,6 +21,7 @@ class _V2ETInvitePageState extends ConsumerState<V2ETInvitePage> {
   @override
   Widget build(BuildContext context) {
     final inviteAsync = ref.watch(v2etInviteProvider);
+    final loading = inviteAsync.isLoading;
     final invite = inviteAsync.when(
       data: (data) => data,
       loading: () => null,
@@ -38,7 +39,13 @@ class _V2ETInvitePageState extends ConsumerState<V2ETInvitePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              V2ETCard(
+              if (loading)
+                const Padding(
+                  padding: EdgeInsets.all(40),
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+              if (!loading)
+                V2ETCard(
                 radius: 16,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -108,8 +115,9 @@ class _V2ETInvitePageState extends ConsumerState<V2ETInvitePage> {
                   ],
                 ),
               ),
-              const SizedBox(height: 14),
-              V2ETCard(
+              if (!loading) const SizedBox(height: 14),
+              if (!loading)
+                V2ETCard(
                 radius: 16,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -144,8 +152,9 @@ class _V2ETInvitePageState extends ConsumerState<V2ETInvitePage> {
                   ],
                 ),
               ),
-              const SizedBox(height: 14),
-              V2ETCard(
+              if (!loading) const SizedBox(height: 14),
+              if (!loading)
+                V2ETCard(
                 radius: 16,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -205,8 +214,9 @@ class _V2ETInvitePageState extends ConsumerState<V2ETInvitePage> {
                   ],
                 ),
               ),
-              const SizedBox(height: 14),
-              V2ETCard(
+              if (!loading) const SizedBox(height: 14),
+              if (!loading)
+                V2ETCard(
                 height: 170,
                 radius: 16,
                 child: Column(

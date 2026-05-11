@@ -37,6 +37,21 @@ class V2etSubscription {
 }
 
 @immutable
+class V2etUserInfo {
+  const V2etUserInfo({
+    required this.email,
+    required this.balance,
+    required this.commissionBalance,
+    this.planName,
+  });
+
+  final String email;
+  final double balance;
+  final double commissionBalance;
+  final String? planName;
+}
+
+@immutable
 class V2etStoreOffer {
   const V2etStoreOffer({
     required this.id,
@@ -151,6 +166,7 @@ abstract class V2etAuthGateway {
 
 abstract class V2etSubscriptionGateway {
   Future<V2etSubscription> fetchSubscription();
+  Future<V2etUserInfo> fetchUserInfo();
 }
 
 abstract class V2etStoreGateway {
@@ -169,6 +185,7 @@ abstract class V2etStoreGateway {
 abstract class V2etInviteGateway {
   Future<V2etInviteData> fetchInviteData();
   Future<String> generateInviteCode();
+  Future<void> redeemGiftCard(String code);
 }
 
 abstract class V2etNoticeGateway {

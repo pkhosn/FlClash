@@ -114,6 +114,24 @@ class V2etPanelApi {
     return response.data ?? const <String, dynamic>{};
   }
 
+  Future<Map<String, dynamic>> fetchUserInfo({
+    required Uri baseUrl,
+    required String accessToken,
+  }) async {
+    final uri = _join(baseUrl, '/api/v1/user/info');
+    final response = await _dio.getUri<Map<String, dynamic>>(
+      uri,
+      options: Options(
+        headers: {
+          'Accept': 'application/json,text/plain,*/*',
+          'Authorization': accessToken,
+        },
+        responseType: ResponseType.json,
+      ),
+    );
+    return response.data ?? const <String, dynamic>{};
+  }
+
   Future<List<Map<String, dynamic>>> fetchPlans({
     required Uri baseUrl,
     required String accessToken,
@@ -192,7 +210,7 @@ class V2etPanelApi {
     return const [];
   }
 
-  Future<List<Map<String, dynamic>>> fetchInviteData({
+  Future<Map<String, dynamic>> fetchInviteData({
     required Uri baseUrl,
     required String accessToken,
   }) async {
@@ -207,15 +225,7 @@ class V2etPanelApi {
         responseType: ResponseType.json,
       ),
     );
-    final body = response.data ?? const <String, dynamic>{};
-    final data = body['data'];
-    if (data is List) {
-      return data
-          .whereType<Map>()
-          .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
-          .toList();
-    }
-    return const [];
+    return response.data ?? const <String, dynamic>{};
   }
 
   Future<Map<String, dynamic>> fetchCommConfig({
@@ -406,6 +416,25 @@ class V2etPanelApi {
     await _dio.postUri<Map<String, dynamic>>(
       uri,
       data: {'old_password': oldPassword, 'new_password': newPassword},
+      options: Options(
+        headers: {
+          'Accept': 'application/json,text/plain,*/*',
+          'Authorization': accessToken,
+        },
+        responseType: ResponseType.json,
+      ),
+    );
+  }
+
+  Future<void> redeemGiftCard({
+    required Uri baseUrl,
+    required String accessToken,
+    required String code,
+  }) async {
+    final uri = _join(baseUrl, '/api/v1/user/redeemgiftcard');
+    await _dio.postUri<Map<String, dynamic>>(
+      uri,
+      data: {'giftcard': code},
       options: Options(
         headers: {
           'Accept': 'application/json,text/plain,*/*',

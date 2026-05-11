@@ -13,13 +13,13 @@ class V2ETProfileCenterPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final subAsync = ref.watch(v2etSubscriptionProvider);
-    final inviteAsync = ref.watch(v2etInviteProvider);
+    final userAsync = ref.watch(v2etUserInfoProvider);
     final sub = subAsync.when(
       data: (data) => data,
       loading: () => null,
       error: (_, _) => null,
     );
-    final invite = inviteAsync.when(
+    final user = userAsync.when(
       data: (data) => data,
       loading: () => null,
       error: (_, _) => null,
@@ -32,10 +32,10 @@ class V2ETProfileCenterPage extends ConsumerWidget {
           child: Column(
             children: [
               _AccountHeroCard(
-                email: '--',
-                planName: sub?.planName ?? '--',
-                balance: 0,
-                commission: invite?.totalCommission ?? 0,
+                email: user?.email ?? '--',
+                planName: sub?.planName ?? user?.planName ?? '--',
+                balance: user?.balance ?? 0,
+                commission: user?.commissionBalance ?? 0,
               ),
               const SizedBox(height: 18),
               _SecurityCard(

@@ -711,8 +711,7 @@ class _PowerButtonState extends State<_PowerButton>
   Widget build(BuildContext context) {
     final started = widget.started;
     final onTap = widget.onTap;
-    final scheme = Theme.of(context).colorScheme;
-    final primary = scheme.primary;
+    final primary = V2ETTokens.primary;
     final darkPrimary = Color.lerp(primary, Colors.black, 0.14) ?? primary;
     return AnimatedBuilder(
       animation: _controller,
@@ -748,9 +747,9 @@ class _PowerButtonState extends State<_PowerButton>
                                 darkPrimary,
                               ]
                             : [
-                                Color.lerp(primary, Colors.white, 0.90)!,
-                                Color.lerp(primary, Colors.white, 0.75)!,
-                                const Color(0xFFE6ECF3),
+                                const Color(0xFFF3F6FA),
+                                const Color(0xFFEAF0F6),
+                                const Color(0xFFE1E8F0),
                               ],
                         stops: const [0.0, 0.56, 1.0],
                       ),

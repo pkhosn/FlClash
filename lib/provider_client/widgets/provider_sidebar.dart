@@ -8,11 +8,13 @@ class ProviderSidebar extends StatelessWidget {
     required this.current,
     required this.onChanged,
     required this.onLogout,
+    required this.onRedeemGiftCard,
   });
 
   final ProviderClientPage current;
   final ValueChanged<ProviderClientPage> onChanged;
   final VoidCallback onLogout;
+  final Future<void> Function() onRedeemGiftCard;
 
   @override
   Widget build(BuildContext context) {
@@ -25,13 +27,8 @@ class ProviderSidebar extends StatelessWidget {
           _item(ProviderClientPage.dashboard, Icons.grid_view_rounded, '首页面板'),
           _item(ProviderClientPage.store, Icons.shopping_cart_rounded, '购买套餐'),
           _item(ProviderClientPage.invite, Icons.card_giftcard_rounded, '邀请推广'),
-          _item(
-            ProviderClientPage.connections,
-            Icons.settings_input_component_rounded,
-            '连接状态',
-          ),
           const Spacer(),
-          _SmallIcon(icon: Icons.card_giftcard_outlined, onTap: () {}),
+          _SmallIcon(icon: Icons.card_giftcard_outlined, onTap: onRedeemGiftCard),
           _SmallIcon(icon: Icons.wb_sunny_outlined, onTap: () {}),
           const SizedBox(height: 16),
           Container(width: 78, height: 1, color: V2ETTokens.border),

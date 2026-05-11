@@ -7,6 +7,11 @@ final v2etSubscriptionProvider = FutureProvider<V2etSubscription>((ref) async {
   return bridge.fetchSubscription();
 });
 
+final v2etUserInfoProvider = FutureProvider<V2etUserInfo>((ref) async {
+  final bridge = ref.watch(v2etBridgeProvider);
+  return bridge.fetchUserInfo();
+});
+
 final v2etStoreOffersProvider = FutureProvider<List<V2etStoreOffer>>((
   ref,
 ) async {
@@ -28,4 +33,3 @@ final v2etProxyModeProvider = FutureProvider<V2etProxyMode>((ref) async {
   final bridge = ref.watch(v2etBridgeProvider);
   return bridge.getProxyMode();
 });
-

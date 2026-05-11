@@ -18,6 +18,7 @@ class V2ETStorePage extends ConsumerStatefulWidget {
 
 class _V2ETStorePageState extends ConsumerState<V2ETStorePage> {
   bool _submitting = false;
+  bool _cancelPayPolling = false;
   @override
   Widget build(BuildContext context) {
     final offersAsync = ref.watch(v2etStoreOffersProvider);
@@ -140,14 +141,22 @@ class _V2ETStorePageState extends ConsumerState<V2ETStorePage> {
 
   Future<_PayResult> _waitOrderPaid(V2etBridge bridge) async {
     if (!mounted) return _PayResult.pending;
+    _cancelPayPolling = false;
     showDialog<void>(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const _PaymentCheckingDialog(),
+      builder: (context) => _PaymentCheckingDialog(
+        onCancel: () {
+          _cancelPayPolling = true;
+          Navigator.of(context, rootNavigator: true).pop();
+        },
+      ),
     );
     var hadPending = false;
     for (var i = 0; i < 60; i++) {
+      if (_cancelPayPolling) return _PayResult.pending;
       await Future<void>.delayed(const Duration(seconds: 3));
+      if (_cancelPayPolling) return _PayResult.pending;
       try {
         final orders = await bridge.fetchOrders();
         final pending = orders.where((e) => e.status == 0).toList();
@@ -183,7 +192,8 @@ class _V2ETStorePageState extends ConsumerState<V2ETStorePage> {
 enum _PayResult { paid, pending, timeout }
 
 class _PaymentCheckingDialog extends StatelessWidget {
-  const _PaymentCheckingDialog();
+  const _PaymentCheckingDialog({required this.onCancel});
+  final VoidCallback onCancel;
 
   @override
   Widget build(BuildContext context) {
@@ -192,14 +202,16 @@ class _PaymentCheckingDialog extends StatelessWidget {
         width: 300,
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          children: const [
-            SizedBox(
+          children: [
+            const SizedBox(
               width: 24,
               height: 24,
               child: CircularProgressIndicator(strokeWidth: 2.4),
             ),
-            SizedBox(height: 14),
-            Text('正在确认支付状态...'),
+            const SizedBox(height: 14),
+            const Text('正在确认支付状态...'),
+            const SizedBox(height: 14),
+            TextButton(onPressed: onCancel, child: const Text('取消')),
           ],
         ),
       ),
@@ -307,8 +319,24 @@ class _OfferCard extends StatelessWidget {
                 padding: const EdgeInsets.only(bottom: 6),
                 child: Row(
                   children: [
-                    Expanded(child: Text(_periodLabel(p.key))),
-                    Text('¥${p.value.toStringAsFixed(2)}'),
+                    Expanded(
+                      child: Text(
+                        _periodLabel(p.key),
+                        style: const TextStyle(
+                          fontSize: 25 / 2,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF303643),
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '¥${p.value.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        fontSize: 25 / 2,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF303643),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -384,6 +412,7 @@ class _OfferCard extends StatelessWidget {
 
   String _fmtBytes(int bytes) {
     if (bytes <= 0) return '--';
+    if (bytes < 2048) return '$bytes GB';
     const unit = ['B', 'KB', 'MB', 'GB', 'TB'];
     double value = bytes.toDouble();
     int idx = 0;
@@ -410,19 +439,53 @@ class _OfferCard extends StatelessWidget {
       final out = <String>[];
       if (decoded is List) {
         for (final item in decoded) {
+          if (item is Map) {
+            final line = _lineFromFeatureMap(item);
+            if (line.isNotEmpty) {
+              out.add(line);
+              continue;
+            }
+            final v = _lineFromGenericMap(item);
+            if (v.isNotEmpty) out.add(v);
+            continue;
+          }
           final v = '$item'.trim();
           if (v.isNotEmpty) out.add(v);
         }
       } else if (decoded is Map) {
-        for (final entry in decoded.entries) {
-          final v = '${entry.value}'.trim();
-          if (v.isNotEmpty) out.add(v);
-        }
+        final line = _lineFromFeatureMap(decoded);
+        if (line.isNotEmpty) out.add(line);
+        final v = _lineFromGenericMap(decoded);
+        if (v.isNotEmpty && !out.contains(v)) out.add(v);
       }
       return out;
     } catch (_) {
       return const [];
     }
+  }
+
+  String _lineFromFeatureMap(Map map) {
+    final feature = '${map['feature'] ?? ''}'.trim();
+    if (feature.isEmpty) return '';
+    final support = map['support'];
+    if (support is bool) {
+      return support ? feature : '不支持：$feature';
+    }
+    final supportText = '${support ?? ''}'.trim().toLowerCase();
+    if (supportText == 'false' || supportText == '0') {
+      return '不支持：$feature';
+    }
+    return feature;
+  }
+
+  String _lineFromGenericMap(Map map) {
+    final pairs = <String>[];
+    map.forEach((key, value) {
+      if ('$key' == 'support') return;
+      final v = '${value ?? ''}'.trim();
+      if (v.isNotEmpty) pairs.add(v);
+    });
+    return pairs.join(' ');
   }
 
   List<String> _fromHtml(String text) {

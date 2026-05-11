@@ -41,6 +41,9 @@ class FlClashV2etBridge implements V2etBridge {
   }
 
   @override
+  Future<V2etUserInfo> fetchUserInfo() => _fetchUserInfo();
+
+  @override
   Future<List<V2etStoreOffer>> fetchStoreOffers() => _fetchStoreOffers();
 
   @override
@@ -54,6 +57,9 @@ class FlClashV2etBridge implements V2etBridge {
 
   @override
   Future<String> generateInviteCode() => _generateInviteCode();
+
+  @override
+  Future<void> redeemGiftCard(String code) => _redeemGiftCard(code);
 
   @override
   Future<Uri> startCheckout({
@@ -292,6 +298,30 @@ class FlClashV2etBridge implements V2etBridge {
     );
   }
 
+  Future<V2etUserInfo> _fetchUserInfo() async {
+    final session = await _sessionStore.read();
+    if (session == null || !session.hasToken) {
+      throw StateError('session not found');
+    }
+    final data = await _panelApi.fetchUserInfo(
+      baseUrl: session.baseUrl,
+      accessToken: session.accessToken,
+    );
+    final payload = data['data'] is Map ? data['data'] as Map : data;
+    final email = '${payload['email'] ?? session.email}'.trim();
+    final balance = _normalizeCurrency(_toDouble(payload['balance']));
+    final commissionBalance = _normalizeCurrency(
+      _toDouble(payload['commission_balance']),
+    );
+    final planName = payload['plan_name']?.toString();
+    return V2etUserInfo(
+      email: email.isEmpty ? session.email : email,
+      balance: balance,
+      commissionBalance: commissionBalance,
+      planName: planName,
+    );
+  }
+
   int _toInt(dynamic value) {
     if (value is int) return value;
     if (value is num) return value.toInt();
@@ -326,9 +356,9 @@ class FlClashV2etBridge implements V2etBridge {
       for (final key in keys) {
         final raw = item[key];
         if (raw == null) continue;
-        final value = raw is num ? raw.toDouble() : double.tryParse('$raw');
-        if (value != null && value > 0) {
-          prices[_periodViewKey(key)] = value;
+        final parsed = raw is num ? raw.toDouble() : double.tryParse('$raw');
+        if (parsed != null && parsed > 0) {
+          prices[_periodViewKey(key)] = _normalizeCurrency(parsed);
         }
       }
       final transferEnableBytes = _toInt(item['transfer_enable']);
@@ -498,32 +528,31 @@ class FlClashV2etBridge implements V2etBridge {
     if (session == null || !session.hasToken) {
       throw StateError('session not found');
     }
-    final items = await _panelApi.fetchInviteData(
+    final raw = await _panelApi.fetchInviteData(
       baseUrl: session.baseUrl,
       accessToken: session.accessToken,
     );
-    final cfg = await _panelApi.fetchCommConfig(
-      baseUrl: session.baseUrl,
-      accessToken: session.accessToken,
-    );
-    final cfgData = cfg['data'] is Map ? cfg['data'] as Map : cfg;
-    final commissionRate = _toDouble(
-      cfgData['invite_commission'] ?? cfgData['commission_rate'],
-    );
-
+    final data = raw['data'] is Map ? raw['data'] as Map : raw;
+    final rawCodes = data['codes'];
+    final rawStat = data['stat'];
     final codes = <String>[];
-    var inviteCount = 0;
-    var totalCommission = 0.0;
-    for (final item in items) {
-      final code = '${item['code'] ?? item['invite_code'] ?? ''}'.trim();
-      if (code.isNotEmpty) {
-        codes.add(code);
+    if (rawCodes is List) {
+      for (final item in rawCodes) {
+        if (item is Map) {
+          final code = '${item['code'] ?? item['invite_code'] ?? ''}'.trim();
+          if (code.isNotEmpty) codes.add(code);
+        } else {
+          final code = '$item'.trim();
+          if (code.isNotEmpty) codes.add(code);
+        }
       }
-      inviteCount += _toInt(item['invite_count'] ?? item['count']);
-      totalCommission += _toDouble(
-        item['commission'] ?? item['total_commission'],
-      );
     }
+    final stat = rawStat is List ? rawStat : const <dynamic>[];
+    final inviteCount = stat.isNotEmpty ? _toInt(stat[0]) : 0;
+    final totalCommission = stat.length > 1
+        ? _normalizeCurrency(_toDouble(stat[1]))
+        : 0.0;
+    final commissionRate = stat.length > 3 ? _toDouble(stat[3]) : 0.0;
     return V2etInviteData(
       codes: codes,
       commissionRate: commissionRate,
@@ -543,10 +572,33 @@ class FlClashV2etBridge implements V2etBridge {
     );
   }
 
+  Future<void> _redeemGiftCard(String code) async {
+    final session = await _sessionStore.read();
+    if (session == null || !session.hasToken) {
+      throw StateError('session not found');
+    }
+    final text = code.trim();
+    if (text.isEmpty) {
+      throw StateError('gift card code is empty');
+    }
+    await _panelApi.redeemGiftCard(
+      baseUrl: session.baseUrl,
+      accessToken: session.accessToken,
+      code: text,
+    );
+  }
+
   double _toDouble(dynamic value) {
     if (value is double) return value;
     if (value is num) return value.toDouble();
     return double.tryParse('${value ?? ''}') ?? 0;
+  }
+
+  double _normalizeCurrency(double amount) {
+    // v2board deploys may return cents or yuan.
+    // Heuristic: >= 1000 usually means cents (e.g. 3000 => ¥30.00).
+    if (amount >= 1000) return amount / 100.0;
+    return amount;
   }
 
   String _periodViewKey(String raw) {

@@ -11,6 +11,7 @@ import 'config/remote_config_provider.dart';
 import 'config/app_config_model.dart';
 import 'config/api_health_service.dart';
 import 'config/auth_bootstrap_service.dart';
+import 'data/v2et_runtime_providers.dart';
 import 'theme/provider_theme.dart';
 import 'theme/provider_tokens.dart';
 import 'app_shell/provider_client_page.dart';
@@ -24,7 +25,6 @@ import 'pages/dashboard/provider_home_page.dart';
 import 'pages/dashboard/customer_service_dialog.dart';
 import 'pages/store/store_page.dart';
 import 'pages/invite/invite_page.dart';
-import 'pages/connections/connection_status_page.dart';
 import 'pages/settings/provider_settings_page.dart';
 import 'pages/profile/profile_center_page.dart';
 
@@ -570,6 +570,7 @@ class _ProviderClientAppShellState
               current: current,
               onChanged: (page) => setState(() => current = page),
               onLogout: widget.onLogout,
+              onRedeemGiftCard: _openRedeemGiftCardDialog,
             ),
             Expanded(
               child: Container(
@@ -617,7 +618,10 @@ class _ProviderClientAppShellState
       case ProviderClientPage.invite:
         return const V2ETInvitePage();
       case ProviderClientPage.connections:
-        return const V2ETConnectionStatusPage();
+        return V2ETProviderHomePage(
+          showNoticePopup: appConfig.showNoticePopup,
+          siteName: widget.siteName,
+        );
       case ProviderClientPage.profile:
         return const V2ETProfileCenterPage();
       case ProviderClientPage.settings:
@@ -632,5 +636,74 @@ class _ProviderClientAppShellState
     if (box is! RenderBox) return null;
     final offset = box.localToGlobal(Offset.zero);
     return offset & box.size;
+  }
+
+  Future<void> _openRedeemGiftCardDialog() async {
+    final controller = TextEditingController();
+    bool submitting = false;
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('兑换礼品卡'),
+              content: TextField(
+                controller: controller,
+                autofocus: true,
+                enabled: !submitting,
+                decoration: const InputDecoration(
+                  hintText: '请输入兑换码',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: submitting
+                      ? null
+                      : () => Navigator.of(context).pop(),
+                  child: const Text('取消'),
+                ),
+                FilledButton(
+                  onPressed: submitting
+                      ? null
+                      : () async {
+                          final code = controller.text.trim();
+                          if (code.isEmpty) return;
+                          setDialogState(() => submitting = true);
+                          try {
+                            await ref.read(v2etBridgeProvider).redeemGiftCard(code);
+                            if (!context.mounted) return;
+                            Navigator.of(context).pop();
+                            ref.invalidate(v2etSubscriptionProvider);
+                            ref.invalidate(v2etInviteProvider);
+                            if (!mounted) return;
+                            ScaffoldMessenger.of(this.context).showSnackBar(
+                              const SnackBar(content: Text('兑换成功')),
+                            );
+                          } catch (e) {
+                            setDialogState(() => submitting = false);
+                            if (!mounted) return;
+                            ScaffoldMessenger.of(this.context).showSnackBar(
+                              SnackBar(content: Text('兑换失败: $e')),
+                            );
+                          }
+                        },
+                  child: submitting
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('立即兑换'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 }
