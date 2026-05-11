@@ -10,15 +10,31 @@ Future<void> showV2ETProxyGroupDialog(
   BuildContext context, {
   String title = 'v2et',
 }) {
-  return showDialog<void>(
+  return showGeneralDialog<void>(
     context: context,
     barrierDismissible: true,
+    barrierLabel: 'close-proxy-dialog',
     barrierColor: Colors.black.withValues(alpha: 0.50),
-    builder: (_) => Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.all(24),
-      child: V2ETProxyGroupDialog(title: title),
+    transitionDuration: const Duration(milliseconds: 140),
+    pageBuilder: (context, animation, secondaryAnimation) => Material(
+      color: Colors.transparent,
+      child: GestureDetector(
+        onTap: () => Navigator.of(context, rootNavigator: true).pop(),
+        behavior: HitTestBehavior.opaque,
+        child: Center(
+          child: GestureDetector(
+            onTap: () {},
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: V2ETProxyGroupDialog(title: title),
+            ),
+          ),
+        ),
+      ),
     ),
+    transitionBuilder: (context, animation, _, child) {
+      return FadeTransition(opacity: animation, child: child);
+    },
   );
 }
 
@@ -298,6 +314,7 @@ class _NodeTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final flag = _flagForNodeName(name);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(9),
@@ -310,6 +327,18 @@ class _NodeTile extends StatelessWidget {
         ),
         child: Row(
           children: [
+            Container(
+              width: 28,
+              height: 28,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF5F7FB),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: const Color(0xFFE3E8F0)),
+              ),
+              child: Text(flag, style: const TextStyle(fontSize: 16)),
+            ),
+            const SizedBox(width: 9),
             Expanded(
               child: Text(
                 name,
@@ -361,5 +390,43 @@ class _NodeTile extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String _flagForNodeName(String name) {
+    final n = name.toLowerCase();
+    if (n.contains('香港') || n.contains('hk') || n.contains('hong kong')) {
+      return '🇭🇰';
+    }
+    if (n.contains('台湾') || n.contains('台灣') || n.contains('tw')) {
+      return '🇹🇼';
+    }
+    if (n.contains('日本') || n.contains('jp') || n.contains('japan')) {
+      return '🇯🇵';
+    }
+    if (n.contains('新加坡') || n.contains('sg') || n.contains('singapore')) {
+      return '🇸🇬';
+    }
+    if (n.contains('美国') || n.contains('美國') || n.contains('us')) {
+      return '🇺🇸';
+    }
+    if (n.contains('韩国') || n.contains('韓國') || n.contains('kr')) {
+      return '🇰🇷';
+    }
+    if (n.contains('英国') || n.contains('英國') || n.contains('uk')) {
+      return '🇬🇧';
+    }
+    if (n.contains('德国') || n.contains('德國') || n.contains('de')) {
+      return '🇩🇪';
+    }
+    if (n.contains('法国') || n.contains('法國') || n.contains('fr')) {
+      return '🇫🇷';
+    }
+    if (n.contains('加拿大') || n.contains('ca') || n.contains('canada')) {
+      return '🇨🇦';
+    }
+    if (n.contains('澳大利亚') || n.contains('澳洲') || n.contains('au')) {
+      return '🇦🇺';
+    }
+    return '🌐';
   }
 }

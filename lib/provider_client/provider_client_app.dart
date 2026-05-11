@@ -88,6 +88,7 @@ class _V2ETAuthGateState extends ConsumerState<V2ETAuthGate> {
   bool _requireInviteCode = false;
   bool _whitelistEnabled = false;
   List<ApiHealthItem> _apiHealthItems = const [];
+  String _siteName = '';
 
   bool get _isDarkMode {
     final mode = ref.read(themeSettingProvider).themeMode;
@@ -130,6 +131,7 @@ class _V2ETAuthGateState extends ConsumerState<V2ETAuthGate> {
       return ProviderWindowFrame(
         title: appConfig.brandName,
         child: ProviderClientAppShell(
+          siteName: _siteName,
           onLogout: () => setState(() {
             loggedIn = false;
             page = 'login';
@@ -370,6 +372,7 @@ class _V2ETAuthGateState extends ConsumerState<V2ETAuthGate> {
         _requireEmailVerify = data.requireEmailVerify;
         _requireInviteCode = data.requireInviteCode;
         _whitelistEnabled = data.whitelistEnabled;
+        _siteName = data.siteName.trim();
         if (_languageCodes.isNotEmpty &&
             !_languageCodes.contains(_languageCode)) {
           _languageCode = _languageCodes.first;
@@ -538,8 +541,13 @@ class _V2ETAuthGateState extends ConsumerState<V2ETAuthGate> {
 }
 
 class ProviderClientAppShell extends ConsumerStatefulWidget {
-  const ProviderClientAppShell({super.key, required this.onLogout});
+  const ProviderClientAppShell({
+    super.key,
+    required this.onLogout,
+    this.siteName = '',
+  });
   final VoidCallback onLogout;
+  final String siteName;
 
   @override
   ConsumerState<ProviderClientAppShell> createState() =>
@@ -600,7 +608,10 @@ class _ProviderClientAppShellState
     final appConfig = ref.watch(appConfigProvider);
     switch (current) {
       case ProviderClientPage.dashboard:
-        return V2ETProviderHomePage(showNoticePopup: appConfig.showNoticePopup);
+        return V2ETProviderHomePage(
+          showNoticePopup: appConfig.showNoticePopup,
+          siteName: widget.siteName,
+        );
       case ProviderClientPage.store:
         return const V2ETStorePage();
       case ProviderClientPage.invite:

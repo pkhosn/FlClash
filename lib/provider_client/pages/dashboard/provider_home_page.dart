@@ -16,9 +16,14 @@ import 'notice_dialog.dart';
 import 'proxy_group_dialog.dart';
 
 class V2ETProviderHomePage extends ConsumerStatefulWidget {
-  const V2ETProviderHomePage({super.key, this.showNoticePopup = true});
+  const V2ETProviderHomePage({
+    super.key,
+    this.showNoticePopup = true,
+    this.siteName = '',
+  });
 
   final bool showNoticePopup;
+  final String siteName;
 
   @override
   ConsumerState<V2ETProviderHomePage> createState() =>
@@ -31,19 +36,29 @@ class _V2ETProviderHomePageState extends ConsumerState<V2ETProviderHomePage>
   Timer? _ticker;
   bool _didAutoDelayTest = false;
   bool _autoDelayTesting = false;
+  ProviderSubscription<bool>? _isStartSub;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _isStartSub = ref.listenManual<bool>(isStartProvider, (prev, next) {
+      if (next) {
+        _scheduleAutoDelayTest();
+      }
+    });
     _ticker = Timer.periodic(const Duration(seconds: 20), (_) {
       if (mounted) ref.invalidate(v2etSubscriptionProvider);
     });
+    if (ref.read(isStartProvider)) {
+      _scheduleAutoDelayTest();
+    }
   }
 
   @override
   void dispose() {
     _ticker?.cancel();
+    _isStartSub?.close();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -79,7 +94,7 @@ class _V2ETProviderHomePageState extends ConsumerState<V2ETProviderHomePage>
     final resetDateText = _resetDateText(sub?.resetDay);
 
     if (isStart && !_didAutoDelayTest && !_autoDelayTesting) {
-      Future.microtask(_runAutoDelayTestOnce);
+      _scheduleAutoDelayTest();
     }
 
     return SingleChildScrollView(
@@ -126,7 +141,7 @@ class _V2ETProviderHomePageState extends ConsumerState<V2ETProviderHomePage>
               _CurrentNodeCard(
                 onOpen: () => showV2ETProxyGroupDialog(
                   context,
-                  title: _nodeDialogTitle(appConfig.brandName),
+                  title: _nodeDialogTitle(widget.siteName, appConfig.brandName),
                 ),
               ),
             ],
@@ -180,6 +195,7 @@ class _V2ETProviderHomePageState extends ConsumerState<V2ETProviderHomePage>
     try {
       await appController.updateGroups();
       final groups = ref.read(currentGroupsStateProvider).value;
+      if (groups.isEmpty) return;
       for (final group in groups) {
         await delayTest(group.all, group.testUrl);
       }
@@ -189,12 +205,22 @@ class _V2ETProviderHomePageState extends ConsumerState<V2ETProviderHomePage>
       // Keep silent as requested: background behavior without popup/tips.
     } finally {
       _autoDelayTesting = false;
+      if (!_didAutoDelayTest && mounted && ref.read(isStartProvider)) {
+        Future<void>.delayed(const Duration(seconds: 2), _scheduleAutoDelayTest);
+      }
     }
   }
 
-  String _nodeDialogTitle(String brandName) {
-    final text = brandName.trim();
-    return text.isEmpty ? 'v2et' : text;
+  void _scheduleAutoDelayTest() {
+    if (!mounted || _didAutoDelayTest || _autoDelayTesting) return;
+    Future.microtask(_runAutoDelayTestOnce);
+  }
+
+  String _nodeDialogTitle(String siteName, String brandName) {
+    final fromSite = siteName.trim();
+    if (fromSite.isNotEmpty) return fromSite;
+    final fromBrand = brandName.trim();
+    return fromBrand.isEmpty ? 'v2et' : fromBrand;
   }
 
   Future<bool> _confirmGlobalMode() async {
@@ -959,7 +985,6 @@ class _CurrentNodeCard extends ConsumerWidget {
     final mainName = selectedProxy.trim().isEmpty || selectedProxy == '--'
         ? groupName
         : selectedProxy;
-    final subName = mainName == groupName ? '' : groupName;
     final delay = currentGroup == null
         ? null
         : ref.watch(
@@ -971,6 +996,7 @@ class _CurrentNodeCard extends ConsumerWidget {
     final delayText = delay == null
         ? '--'
         : (delay <= 0 ? '测试中' : '${delay}ms');
+    final nodeFlag = _flagForNodeName(mainName);
 
     return V2ETCard(
       padding: EdgeInsets.zero,
@@ -989,7 +1015,7 @@ class _CurrentNodeCard extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: const Color(0xFFE3E8F0)),
                 ),
-                child: const Center(child: Text('🇭🇰')),
+                child: Center(child: Text(nodeFlag)),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -1003,10 +1029,6 @@ class _CurrentNodeCard extends ConsumerWidget {
                         fontWeight: FontWeight.w900,
                       ),
                     ),
-                    if (subName.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(subName, style: V2ETTokens.small),
-                    ],
                   ],
                 ),
               ),
@@ -1048,5 +1070,43 @@ class _CurrentNodeCard extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  String _flagForNodeName(String name) {
+    final n = name.toLowerCase();
+    if (n.contains('香港') || n.contains('hk') || n.contains('hong kong')) {
+      return '🇭🇰';
+    }
+    if (n.contains('台湾') || n.contains('台灣') || n.contains('tw')) {
+      return '🇹🇼';
+    }
+    if (n.contains('日本') || n.contains('jp') || n.contains('japan')) {
+      return '🇯🇵';
+    }
+    if (n.contains('新加坡') || n.contains('sg') || n.contains('singapore')) {
+      return '🇸🇬';
+    }
+    if (n.contains('美国') || n.contains('美國') || n.contains('us')) {
+      return '🇺🇸';
+    }
+    if (n.contains('韩国') || n.contains('韓國') || n.contains('kr')) {
+      return '🇰🇷';
+    }
+    if (n.contains('英国') || n.contains('英國') || n.contains('uk')) {
+      return '🇬🇧';
+    }
+    if (n.contains('德国') || n.contains('德國') || n.contains('de')) {
+      return '🇩🇪';
+    }
+    if (n.contains('法国') || n.contains('法國') || n.contains('fr')) {
+      return '🇫🇷';
+    }
+    if (n.contains('加拿大') || n.contains('ca') || n.contains('canada')) {
+      return '🇨🇦';
+    }
+    if (n.contains('澳大利亚') || n.contains('澳洲') || n.contains('au')) {
+      return '🇦🇺';
+    }
+    return '🌐';
   }
 }

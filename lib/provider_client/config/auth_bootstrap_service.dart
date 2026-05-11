@@ -7,6 +7,7 @@ class AuthBootstrapData {
     required this.requireEmailVerify,
     required this.requireInviteCode,
     required this.whitelistEnabled,
+    required this.siteName,
   });
 
   final List<String> emailSuffixes;
@@ -14,6 +15,7 @@ class AuthBootstrapData {
   final bool requireEmailVerify;
   final bool requireInviteCode;
   final bool whitelistEnabled;
+  final String siteName;
 }
 
 class AuthBootstrapService {
@@ -32,6 +34,7 @@ class AuthBootstrapService {
       requireEmailVerify: _toBool(data['is_email_verify'] ?? data['email_verify']),
       requireInviteCode: _toBool(data['is_invite_force'] ?? data['invite_force']),
       whitelistEnabled: suffixes.isNotEmpty,
+      siteName: _extractSiteName(data),
     );
   }
 
@@ -142,6 +145,21 @@ class AuthBootstrapService {
       }
     }
     return const [];
+  }
+
+  String _extractSiteName(Map data) {
+    final candidates = [
+      data['app_name'],
+      data['site_name'],
+      data['name'],
+      data['title'],
+      data['appName'],
+    ];
+    for (final item in candidates) {
+      final text = '$item'.trim();
+      if (text.isNotEmpty) return text;
+    }
+    return '';
   }
 
   Uri _join(Uri base, String path) {
