@@ -1,25 +1,35 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fl_clash/v2et_bridge/v2et_bridge_provider.dart';
 import '../../data/v2et_runtime_providers.dart';
 import '../../theme/provider_tokens.dart';
 import '../../widgets/app_button.dart';
 import '../../widgets/app_card.dart';
 
-class V2ETInvitePage extends ConsumerWidget {
+class V2ETInvitePage extends ConsumerStatefulWidget {
   const V2ETInvitePage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<V2ETInvitePage> createState() => _V2ETInvitePageState();
+}
+
+class _V2ETInvitePageState extends ConsumerState<V2ETInvitePage> {
+  String? _manualCode;
+  bool _creating = false;
+
+  @override
+  Widget build(BuildContext context) {
     final inviteAsync = ref.watch(v2etInviteProvider);
     final invite = inviteAsync.when(
       data: (data) => data,
       loading: () => null,
       error: (_, _) => null,
     );
-    final inviteCode = (invite?.codes.isNotEmpty ?? false)
+    final inviteCode = _manualCode ??
+        ((invite?.codes.isNotEmpty ?? false)
         ? invite!.codes.first
-        : '--';
+        : '--');
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(24, 26, 24, 24),
       child: Center(
@@ -41,7 +51,7 @@ class V2ETInvitePage extends ConsumerWidget {
                           label: '创建邀请码',
                           icon: Icons.add_rounded,
                           tone: V2ETButtonTone.ghost,
-                          onPressed: () {},
+                          onPressed: _creating ? null : _createInviteCode,
                         ),
                       ],
                     ),
@@ -227,6 +237,26 @@ class V2ETInvitePage extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _createInviteCode() async {
+    setState(() => _creating = true);
+    try {
+      final code = await ref.read(v2etBridgeProvider).generateInviteCode();
+      if (!mounted) return;
+      setState(() => _manualCode = code);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('邀请码已创建')));
+      ref.invalidate(v2etInviteProvider);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('创建邀请码失败: $e')));
+    } finally {
+      if (mounted) setState(() => _creating = false);
+    }
   }
 }
 

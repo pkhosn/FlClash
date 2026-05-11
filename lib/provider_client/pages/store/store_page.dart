@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_clash/v2et_bridge/v2et_bridge.dart';
+import 'package:fl_clash/v2et_bridge/v2et_bridge_provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../data/v2et_runtime_providers.dart';
 import '../../widgets/app_button.dart';
 import '../../widgets/app_card.dart';
@@ -73,7 +75,11 @@ class _V2ETStorePageState extends ConsumerState<V2ETStorePage> {
                   spacing: 18,
                   runSpacing: 18,
                   children: [
-                    for (final offer in visible) _OfferCard(offer: offer),
+                    for (final offer in visible)
+                      _OfferCard(
+                        offer: offer,
+                        onSubscribe: (period) => _startCheckout(offer, period),
+                      ),
                   ],
                 ),
             ],
@@ -82,17 +88,36 @@ class _V2ETStorePageState extends ConsumerState<V2ETStorePage> {
       ),
     );
   }
+
+  Future<void> _startCheckout(V2etStoreOffer offer, String period) async {
+    try {
+      final bridge = ref.read(v2etBridgeProvider);
+      final uri = await bridge.startCheckout(planId: offer.id, period: period);
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('已打开支付页面')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('打开支付窗口失败: $e')),
+      );
+    }
+  }
 }
 
 class _OfferCard extends StatelessWidget {
-  const _OfferCard({required this.offer});
+  const _OfferCard({required this.offer, required this.onSubscribe});
   final V2etStoreOffer offer;
+  final ValueChanged<String> onSubscribe;
 
   @override
   Widget build(BuildContext context) {
     final prices = offer.prices.entries.toList()
       ..sort((a, b) => a.value.compareTo(b.value));
     final first = prices.isEmpty ? null : prices.first;
+    final subscribePeriod = first?.key ?? 'month';
     return SizedBox(
       width: 352,
       child: V2ETCard(
@@ -111,7 +136,11 @@ class _OfferCard extends StatelessWidget {
               style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900),
             ),
             const SizedBox(height: 12),
-            V2ETButton(label: '立即订阅', onPressed: () {}, height: 40),
+            V2ETButton(
+              label: '立即订阅',
+              onPressed: () => onSubscribe(subscribePeriod),
+              height: 40,
+            ),
             const SizedBox(height: 12),
             for (final p in prices.take(4))
               Padding(

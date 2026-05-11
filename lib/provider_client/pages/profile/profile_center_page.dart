@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fl_clash/v2et_bridge/v2et_bridge_provider.dart';
 import '../../data/v2et_runtime_providers.dart';
 import '../../theme/provider_tokens.dart';
 import '../../widgets/app_button.dart';
@@ -37,7 +38,16 @@ class V2ETProfileCenterPage extends ConsumerWidget {
                 commission: invite?.totalCommission ?? 0,
               ),
               const SizedBox(height: 18),
-              const _SecurityCard(),
+              _SecurityCard(
+                onChangePassword: (oldPassword, newPassword) async {
+                  await ref
+                      .read(v2etBridgeProvider)
+                      .changePassword(
+                        oldPassword: oldPassword,
+                        newPassword: newPassword,
+                      );
+                },
+              ),
             ],
           ),
         ),
@@ -225,9 +235,14 @@ class _HeroMetric extends StatelessWidget {
 }
 
 class _SecurityCard extends StatelessWidget {
-  const _SecurityCard();
+  const _SecurityCard({required this.onChangePassword});
+  final Future<void> Function(String oldPassword, String newPassword)
+  onChangePassword;
   @override
   Widget build(BuildContext context) {
+    final oldController = TextEditingController();
+    final newController = TextEditingController();
+    final confirmController = TextEditingController();
     return V2ETCard(
       padding: EdgeInsets.zero,
       child: Column(
@@ -287,7 +302,8 @@ class _SecurityCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 18),
-                const V2ETInput(
+                V2ETInput(
+                  controller: oldController,
                   hintText: '当前密码',
                   prefixIcon: Icons.lock_outline_rounded,
                   suffix: Icon(
@@ -297,7 +313,8 @@ class _SecurityCard extends StatelessWidget {
                   height: 46,
                 ),
                 const SizedBox(height: 12),
-                const V2ETInput(
+                V2ETInput(
+                  controller: newController,
                   hintText: '新密码',
                   prefixIcon: Icons.lock_outline_rounded,
                   suffix: Icon(
@@ -307,7 +324,8 @@ class _SecurityCard extends StatelessWidget {
                   height: 46,
                 ),
                 const SizedBox(height: 12),
-                const V2ETInput(
+                V2ETInput(
+                  controller: confirmController,
                   hintText: '确认密码',
                   prefixIcon: Icons.lock_outline_rounded,
                   suffix: Icon(
@@ -322,7 +340,35 @@ class _SecurityCard extends StatelessWidget {
                   height: 54,
                   width: double.infinity,
                   radius: 14,
-                  onPressed: () {},
+                  onPressed: () async {
+                    final oldPassword = oldController.text;
+                    final newPassword = newController.text;
+                    final confirmPassword = confirmController.text;
+                    if (oldPassword.isEmpty || newPassword.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('请完整填写密码')),
+                      );
+                      return;
+                    }
+                    if (newPassword != confirmPassword) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('两次新密码不一致')),
+                      );
+                      return;
+                    }
+                    try {
+                      await onChangePassword(oldPassword, newPassword);
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('密码修改成功')),
+                      );
+                    } catch (e) {
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(
+                        context,
+                      ).showSnackBar(SnackBar(content: Text('修改失败: $e')));
+                    }
+                  },
                 ),
               ],
             ),
