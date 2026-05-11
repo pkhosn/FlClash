@@ -12,6 +12,7 @@ Future<void> showV2ETProxyGroupDialog(
 }) {
   return showDialog<void>(
     context: context,
+    barrierDismissible: true,
     barrierColor: Colors.black.withValues(alpha: 0.50),
     builder: (_) => Dialog(
       backgroundColor: Colors.transparent,

@@ -92,7 +92,8 @@ class _V2ETProviderHomePageState extends ConsumerState<V2ETProviderHomePage>
               _UsageCard(
                 onNotice: () => showV2ETNoticeDialog(context),
                 onRefresh: () => ref.invalidate(v2etSubscriptionProvider),
-                onOpenWebsite: () => _openOfficialWebsite(appConfig.officialWebsite),
+                onOpenWebsite: () =>
+                    _openOfficialWebsite(appConfig.officialWebsite),
                 showNoticePopup: widget.showNoticePopup,
                 remainText: _fmtBytes(remain.toInt()),
                 usedText: _fmtBytes(used.toInt()),
@@ -421,8 +422,9 @@ class _GlobalModeWarningDialogState extends State<_GlobalModeWarningDialog> {
                       child: ElevatedButton(
                         onPressed: () async {
                           if (dontShowAgain) {
-                            final sp =
-                                await preferences.sharedPreferencesCompleter.future;
+                            final sp = await preferences
+                                .sharedPreferencesCompleter
+                                .future;
                             await sp?.setBool(
                               _V2ETProviderHomePageState._skipGlobalWarnKey,
                               true,
@@ -511,7 +513,10 @@ class _UsageCard extends StatelessWidget {
                   children: [
                     _ActionIcon(icon: Icons.refresh_rounded, onTap: onRefresh),
                     const SizedBox(width: 8),
-                    _ActionIcon(icon: Icons.public_rounded, onTap: onOpenWebsite),
+                    _ActionIcon(
+                      icon: Icons.public_rounded,
+                      onTap: onOpenWebsite,
+                    ),
                     const SizedBox(width: 8),
                     Stack(
                       clipBehavior: Clip.none,
@@ -682,7 +687,6 @@ class _PowerButtonState extends State<_PowerButton>
     final onTap = widget.onTap;
     final scheme = Theme.of(context).colorScheme;
     final primary = scheme.primary;
-    final lightPrimary = Color.lerp(primary, Colors.white, 0.62) ?? primary;
     final darkPrimary = Color.lerp(primary, Colors.black, 0.14) ?? primary;
     return AnimatedBuilder(
       animation: _controller,
@@ -690,7 +694,7 @@ class _PowerButtonState extends State<_PowerButton>
         final breath = _hovering
             ? (0.75 + (_controller.value * 0.25))
             : (0.92 + (_controller.value * 0.08));
-        final glow = started ? 0.22 + (_controller.value * 0.18) : 0.0;
+        final glow = started ? 0.28 + (_controller.value * 0.22) : 0.10;
 
         return Column(
           children: [
@@ -708,12 +712,21 @@ class _PowerButtonState extends State<_PowerButton>
                     width: 176,
                     height: 176,
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
+                      gradient: RadialGradient(
+                        center: const Alignment(0, -0.08),
+                        radius: 0.92,
                         colors: started
-                            ? [lightPrimary, darkPrimary]
-                            : const [Color(0xFFF2F5F8), Color(0xFFE7ECF1)],
+                            ? [
+                                Color.lerp(primary, Colors.white, 0.64)!,
+                                Color.lerp(primary, Colors.white, 0.20)!,
+                                darkPrimary,
+                              ]
+                            : [
+                                Color.lerp(primary, Colors.white, 0.90)!,
+                                Color.lerp(primary, Colors.white, 0.75)!,
+                                const Color(0xFFE6ECF3),
+                              ],
+                        stops: const [0.0, 0.56, 1.0],
                       ),
                       shape: BoxShape.circle,
                       boxShadow: [
@@ -730,15 +743,36 @@ class _PowerButtonState extends State<_PowerButton>
                         if (started || _hovering)
                           BoxShadow(
                             color: primary.withValues(
-                              alpha: breath * (_hovering ? 0.32 : glow),
+                              alpha: breath * (_hovering ? 0.34 : glow),
                             ),
-                            blurRadius: _hovering ? 34 : 26,
-                            spreadRadius: _hovering ? 2 : 1,
+                            blurRadius: _hovering ? 42 : 30,
+                            spreadRadius: _hovering ? 4 : 2,
                           ),
                       ],
                     ),
                     child: Stack(
                       children: [
+                        Center(
+                          child: IgnorePointer(
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              width: started || _hovering ? 164 : 148,
+                              height: started || _hovering ? 164 : 148,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: RadialGradient(
+                                  colors: [
+                                    primary.withValues(
+                                      alpha: started ? 0.30 : 0.14,
+                                    ),
+                                    primary.withValues(alpha: 0.0),
+                                  ],
+                                  stops: const [0.05, 1.0],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
                         Positioned(
                           top: 16,
                           left: 22,
@@ -750,8 +784,11 @@ class _PowerButtonState extends State<_PowerButton>
                                 shape: BoxShape.circle,
                                 gradient: RadialGradient(
                                   colors: [
-                                    Color.lerp(primary, Colors.white, 0.78)!
-                                        .withValues(
+                                    Color.lerp(
+                                      primary,
+                                      Colors.white,
+                                      0.78,
+                                    )!.withValues(
                                       alpha: _hovering ? 0.40 : 0.30,
                                     ),
                                     Colors.white.withValues(alpha: 0.0),
@@ -919,6 +956,10 @@ class _CurrentNodeCard extends ConsumerWidget {
     final selectedProxy = currentGroup == null
         ? '--'
         : (ref.watch(getSelectedProxyNameProvider(groupName)) ?? '--');
+    final mainName = selectedProxy.trim().isEmpty || selectedProxy == '--'
+        ? groupName
+        : selectedProxy;
+    final subName = mainName == groupName ? '' : groupName;
     final delay = currentGroup == null
         ? null
         : ref.watch(
@@ -927,7 +968,9 @@ class _CurrentNodeCard extends ConsumerWidget {
               testUrl: currentGroup.testUrl,
             ),
           );
-    final delayText = delay == null ? '--' : (delay <= 0 ? '测试中' : '${delay}ms');
+    final delayText = delay == null
+        ? '--'
+        : (delay <= 0 ? '测试中' : '${delay}ms');
 
     return V2ETCard(
       padding: EdgeInsets.zero,
@@ -954,11 +997,16 @@ class _CurrentNodeCard extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      groupName,
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
+                      mainName,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w900,
+                      ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(selectedProxy, style: V2ETTokens.small),
+                    if (subName.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(subName, style: V2ETTokens.small),
+                    ],
                   ],
                 ),
               ),

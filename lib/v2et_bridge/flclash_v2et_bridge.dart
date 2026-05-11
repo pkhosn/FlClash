@@ -314,20 +314,22 @@ class FlClashV2etBridge implements V2etBridge {
       final name = '${item['name'] ?? item['title'] ?? 'Plan'}'.trim();
       final prices = <String, double>{};
       const keys = [
-        'month',
-        'quarter',
-        'half_year',
-        'year',
-        'two_year',
-        'three_year',
-        'onetime',
-        'reset',
+        'month_price',
+        'quarter_price',
+        'half_year_price',
+        'year_price',
+        'two_year_price',
+        'three_year_price',
+        'onetime_price',
+        'reset_price',
       ];
       for (final key in keys) {
         final raw = item[key];
         if (raw == null) continue;
         final value = raw is num ? raw.toDouble() : double.tryParse('$raw');
-        if (value != null && value > 0) prices[key] = value;
+        if (value != null && value > 0) {
+          prices[_periodViewKey(key)] = value;
+        }
       }
       final transferEnableBytes = _toInt(item['transfer_enable']);
       final deviceLimit = _toInt(item['device_limit']);
@@ -387,7 +389,7 @@ class FlClashV2etBridge implements V2etBridge {
       baseUrl: session.baseUrl,
       accessToken: session.accessToken,
       planId: planId,
-      period: period,
+      period: _periodApiKey(period),
       couponCode: couponCode,
     );
     final payUrl = await _panelApi.checkoutOrder(
@@ -429,11 +431,12 @@ class FlClashV2etBridge implements V2etBridge {
     if (session == null || !session.hasToken) {
       throw StateError('session not found');
     }
-    return _panelApi.checkOrderPaid(
+    final status = await _panelApi.checkOrderPaid(
       baseUrl: session.baseUrl,
       accessToken: session.accessToken,
       tradeNo: tradeNo,
     );
+    return status == 1 || status == 3 || status == 4;
   }
 
   Future<List<V2etOrder>> _fetchOrders() async {
@@ -544,5 +547,51 @@ class FlClashV2etBridge implements V2etBridge {
     if (value is double) return value;
     if (value is num) return value.toDouble();
     return double.tryParse('${value ?? ''}') ?? 0;
+  }
+
+  String _periodViewKey(String raw) {
+    switch (raw) {
+      case 'month_price':
+        return 'month';
+      case 'quarter_price':
+        return 'quarter';
+      case 'half_year_price':
+        return 'half_year';
+      case 'year_price':
+        return 'year';
+      case 'two_year_price':
+        return 'two_year';
+      case 'three_year_price':
+        return 'three_year';
+      case 'onetime_price':
+        return 'onetime';
+      case 'reset_price':
+        return 'reset';
+      default:
+        return raw;
+    }
+  }
+
+  String _periodApiKey(String period) {
+    switch (period) {
+      case 'month':
+        return 'month_price';
+      case 'quarter':
+        return 'quarter_price';
+      case 'half_year':
+        return 'half_year_price';
+      case 'year':
+        return 'year_price';
+      case 'two_year':
+        return 'two_year_price';
+      case 'three_year':
+        return 'three_year_price';
+      case 'onetime':
+        return 'onetime_price';
+      case 'reset':
+        return 'reset_price';
+      default:
+        return period;
+    }
   }
 }

@@ -7,9 +7,9 @@ class V2ETTokens {
 
   // Do not hard-code runtime colors forever. These are only local defaults.
   // Later they should be overridden by object-storage remote JSON config.
-  static const Color primary = Color(0xFF2D6CDF);
-  static const Color primaryDark = Color(0xFF1F5CC3);
-  static const Color primarySoft = Color(0xFFEAF2FF);
+  static const Color primary = Color(0xFF0665D0);
+  static const Color primaryDark = Color(0xFF0557B5);
+  static const Color primarySoft = Color(0xFFE6F0FB);
   static const Color background = Color(0xFFF3F7FC);
   static const Color authBackground = Color(0xFFFFFFFF);
   static const Color authTop = Color(0xFF36A3D1);

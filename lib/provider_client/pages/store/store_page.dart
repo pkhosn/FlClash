@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_clash/v2et_bridge/v2et_bridge.dart';
@@ -15,7 +17,6 @@ class V2ETStorePage extends ConsumerStatefulWidget {
 }
 
 class _V2ETStorePageState extends ConsumerState<V2ETStorePage> {
-  int tab = 0;
   bool _submitting = false;
   @override
   Widget build(BuildContext context) {
@@ -25,13 +26,7 @@ class _V2ETStorePageState extends ConsumerState<V2ETStorePage> {
       loading: () => const <V2etStoreOffer>[],
       error: (_, _) => const <V2etStoreOffer>[],
     );
-    final visible = offers.where((p) {
-      if (!p.show && !p.renew) return false;
-      final hasOnetime = p.prices.keys.contains('onetime');
-      if (tab == 1) return !hasOnetime;
-      if (tab == 2) return hasOnetime;
-      return true;
-    }).toList();
+    final visible = offers.where((p) => p.show || p.renew).toList();
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(24, 26, 24, 24),
       child: Center(
@@ -39,29 +34,6 @@ class _V2ETStorePageState extends ConsumerState<V2ETStorePage> {
           constraints: const BoxConstraints(maxWidth: 730),
           child: Column(
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  V2ETSegmentButton(
-                    label: '全部',
-                    selected: tab == 0,
-                    onTap: () => setState(() => tab = 0),
-                  ),
-                  const SizedBox(width: 10),
-                  V2ETSegmentButton(
-                    label: '常规套餐',
-                    selected: tab == 1,
-                    onTap: () => setState(() => tab = 1),
-                  ),
-                  const SizedBox(width: 10),
-                  V2ETSegmentButton(
-                    label: '一次性套餐',
-                    selected: tab == 2,
-                    onTap: () => setState(() => tab = 2),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
               if (offersAsync.isLoading)
                 const Padding(
                   padding: EdgeInsets.all(40),
@@ -246,6 +218,7 @@ class _OfferCard extends StatelessWidget {
       ..sort((a, b) => a.value.compareTo(b.value));
     final first = prices.isEmpty ? null : prices.first;
     final subscribePeriod = first?.key ?? 'month';
+    final detailLines = _parsePlanDetails(offer.content);
     return SizedBox(
       width: 352,
       child: V2ETCard(
@@ -255,23 +228,48 @@ class _OfferCard extends StatelessWidget {
             Text(
               offer.name,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+              style: const TextStyle(
+                fontSize: 31 / 2,
+                fontWeight: FontWeight.w900,
+              ),
             ),
-            const SizedBox(height: 8),
-            Text(
-              first == null ? '--' : '¥${first.value.toStringAsFixed(2)}',
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900),
+            const SizedBox(height: 6),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  first == null ? '--' : '¥${first.value.toStringAsFixed(0)}',
+                  style: const TextStyle(
+                    fontSize: 47 / 2,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 3),
+                  child: Text(
+                    first == null ? '' : '/${_periodLabelUnit(first.key)}',
+                    style: const TextStyle(
+                      fontSize: 15 / 2,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF6B7280),
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 12),
             V2ETButton(
               label: '立即订阅',
               onPressed: () => onSubscribe(subscribePeriod),
-              height: 40,
+              height: 38,
             ),
             const SizedBox(height: 12),
+            const Divider(height: 1),
+            const SizedBox(height: 12),
             Container(
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: const Color(0xFFF5F7FB),
                 borderRadius: BorderRadius.circular(10),
@@ -304,7 +302,7 @@ class _OfferCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            for (final p in prices)
+            for (final p in prices.skip(1))
               Padding(
                 padding: const EdgeInsets.only(bottom: 6),
                 child: Row(
@@ -314,28 +312,51 @@ class _OfferCard extends StatelessWidget {
                   ],
                 ),
               ),
-            if (offer.content.trim().isNotEmpty) ...[
-              const SizedBox(height: 8),
-              const Divider(height: 1),
-              const SizedBox(height: 8),
-              Text(
-                '套餐说明',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.grey.shade700,
-                ),
-              ),
+            if (detailLines.isNotEmpty) ...[
               const SizedBox(height: 6),
-              Text(
-                offer.content.trim(),
-                style: const TextStyle(fontSize: 12, height: 1.4),
-              ),
+              const Divider(height: 1),
+              const SizedBox(height: 10),
+              for (final line in detailLines)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Text(
+                    line,
+                    style: const TextStyle(
+                      fontSize: 14 / 2,
+                      height: 1.35,
+                      color: Color(0xFF4B5563),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
             ],
           ],
         ),
       ),
     );
+  }
+
+  String _periodLabelUnit(String key) {
+    switch (key) {
+      case 'month':
+        return '月';
+      case 'quarter':
+        return '季';
+      case 'half_year':
+        return '半年';
+      case 'year':
+        return '年';
+      case 'two_year':
+        return '两年';
+      case 'three_year':
+        return '三年';
+      case 'onetime':
+        return '一次性';
+      case 'reset':
+        return '重置包';
+      default:
+        return key;
+    }
   }
 
   String _periodLabel(String key) {
@@ -372,6 +393,73 @@ class _OfferCard extends StatelessWidget {
     }
     return '${value.toStringAsFixed(idx == 0 ? 0 : 1)} ${unit[idx]}';
   }
+
+  List<String> _parsePlanDetails(String raw) {
+    final text = raw.trim();
+    if (text.isEmpty) return const [];
+    final fromJson = _fromJson(text);
+    if (fromJson.isNotEmpty) return fromJson;
+    final fromHtml = _fromHtml(text);
+    if (fromHtml.isNotEmpty) return fromHtml;
+    return _fromMarkdown(text);
+  }
+
+  List<String> _fromJson(String text) {
+    try {
+      final decoded = json.decode(text);
+      final out = <String>[];
+      if (decoded is List) {
+        for (final item in decoded) {
+          final v = '$item'.trim();
+          if (v.isNotEmpty) out.add(v);
+        }
+      } else if (decoded is Map) {
+        for (final entry in decoded.entries) {
+          final v = '${entry.value}'.trim();
+          if (v.isNotEmpty) out.add(v);
+        }
+      }
+      return out;
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  List<String> _fromHtml(String text) {
+    if (!RegExp(r'<[a-zA-Z/][^>]*>').hasMatch(text)) return const [];
+    var s = text
+        .replaceAll(RegExp(r'<\s*br\s*/?>', caseSensitive: false), '\n')
+        .replaceAll(
+          RegExp(r'</\s*(p|div|li|h[1-6])\s*>', caseSensitive: false),
+          '\n',
+        )
+        .replaceAll(RegExp(r'<[^>]*>'), '');
+    s = s
+        .replaceAll('&nbsp;', ' ')
+        .replaceAll('&amp;', '&')
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>')
+        .replaceAll('&quot;', '"')
+        .replaceAll('&#39;', "'");
+    return s
+        .split('\n')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+  }
+
+  List<String> _fromMarkdown(String text) {
+    return text
+        .split('\n')
+        .map(
+          (e) => e
+              .replaceFirst(RegExp(r'^\s*[-*+]\s*'), '')
+              .replaceAll(RegExp(r'[`#>*_]+'), '')
+              .trim(),
+        )
+        .where((e) => e.isNotEmpty)
+        .toList();
+  }
 }
 
 class _Metric extends StatelessWidget {
@@ -381,23 +469,32 @@ class _Metric extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 11,
-            color: Colors.grey.shade600,
-            fontWeight: FontWeight.w700,
+    return Container(
+      height: 88,
+      margin: const EdgeInsets.symmetric(horizontal: 3),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F2F4),
+        borderRadius: BorderRadius.circular(9),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            value,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900),
+            textAlign: TextAlign.center,
           ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900),
-          textAlign: TextAlign.center,
-        ),
-      ],
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey.shade700,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

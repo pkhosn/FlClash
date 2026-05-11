@@ -184,6 +184,7 @@ class _WindowHeaderState extends State<WindowHeader> {
   }
 
   Widget _buildActions() {
+    const iconColor = Color(0xFF374151);
     return Row(
       children: [
         IconButton(
@@ -194,8 +195,8 @@ class _WindowHeaderState extends State<WindowHeader> {
             valueListenable: isPinNotifier,
             builder: (_, value, _) {
               return value
-                  ? const Icon(Icons.push_pin)
-                  : const Icon(Icons.push_pin_outlined);
+                  ? const Icon(Icons.push_pin, color: iconColor)
+                  : const Icon(Icons.push_pin_outlined, color: iconColor);
             },
           ),
         ),
@@ -203,7 +204,7 @@ class _WindowHeaderState extends State<WindowHeader> {
           onPressed: () {
             windowManager.minimize();
           },
-          icon: const Icon(Icons.remove),
+          icon: const Icon(Icons.remove, color: iconColor),
         ),
         IconButton(
           onPressed: () async {
@@ -213,8 +214,8 @@ class _WindowHeaderState extends State<WindowHeader> {
             valueListenable: isMaximizedNotifier,
             builder: (_, value, _) {
               return value
-                  ? const Icon(Icons.filter_none, size: 20)
-                  : const Icon(Icons.crop_square);
+                  ? const Icon(Icons.filter_none, size: 20, color: iconColor)
+                  : const Icon(Icons.crop_square, color: iconColor);
             },
           ),
         ),
@@ -222,7 +223,7 @@ class _WindowHeaderState extends State<WindowHeader> {
           onPressed: () {
             appController.handleBackOrExit();
           },
-          icon: const Icon(Icons.close),
+          icon: const Icon(Icons.close, color: iconColor),
         ),
         // const SizedBox(
         //   width: 8,
@@ -246,7 +247,7 @@ class _WindowHeaderState extends State<WindowHeader> {
                 _updateMaximized();
               },
               child: Container(
-                color: context.colorScheme.secondary.opacity15,
+                color: Colors.white,
                 alignment: Alignment.centerLeft,
                 height: kHeaderHeight,
               ),

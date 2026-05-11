@@ -370,7 +370,7 @@ class V2etPanelApi {
     return const [];
   }
 
-  Future<bool> checkOrderPaid({
+  Future<int> checkOrderPaid({
     required Uri baseUrl,
     required String accessToken,
     required String tradeNo,
@@ -389,10 +389,11 @@ class V2etPanelApi {
     );
     final body = response.data ?? const <String, dynamic>{};
     final data = body['data'];
-    if (data is bool) return data;
-    if (data is num) return data.toInt() == 1;
+    if (data is bool) return data ? 1 : 0;
+    if (data is num) return data.toInt();
     final text = '${data ?? ''}'.trim().toLowerCase();
-    return text == '1' || text == 'true' || text == 'paid';
+    if (text == 'true' || text == 'paid') return 1;
+    return int.tryParse(text) ?? 0;
   }
 
   Future<void> changePassword({
