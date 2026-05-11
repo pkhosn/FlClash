@@ -9,6 +9,7 @@ import '../../data/v2et_runtime_providers.dart';
 import '../../widgets/app_button.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/app_notice.dart';
+import '../../widgets/app_dialog.dart';
 
 class V2ETStorePage extends ConsumerStatefulWidget {
   const V2ETStorePage({super.key});
@@ -124,17 +125,26 @@ class _V2ETStorePageState extends ConsumerState<V2ETStorePage> {
     return showDialog<V2etPaymentMethod>(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          title: const Text('选择支付方式'),
-          content: SizedBox(
+        return V2ETDialogShell(
+          title: '选择支付方式',
+          icon: Icons.account_balance_wallet_rounded,
+          width: 420,
+          body: SizedBox(
             width: 340,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 for (final m in methods)
-                  ListTile(
-                    title: Text(m.name),
-                    onTap: () => Navigator.of(context).pop(m),
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF6F8FC),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: ListTile(
+                      title: Text(m.name),
+                      onTap: () => Navigator.of(context).pop(m),
+                    ),
                   ),
               ],
             ),
@@ -202,24 +212,26 @@ class _PaymentCheckingDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      content: SizedBox(
-        width: 300,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(
-              width: 24,
-              height: 24,
-              child: CircularProgressIndicator(strokeWidth: 2.4),
-            ),
-            const SizedBox(height: 14),
-            const Text('正在确认支付状态...'),
-            const SizedBox(height: 14),
-            TextButton(onPressed: onCancel, child: const Text('取消')),
-          ],
+    return V2ETDialogShell(
+      title: '支付确认',
+      icon: Icons.verified_user_rounded,
+      subtitle: '正在确认支付状态...',
+      width: 360,
+      body: const Center(
+        child: SizedBox(
+          width: 24,
+          height: 24,
+          child: CircularProgressIndicator(strokeWidth: 2.4),
         ),
       ),
+      actions: [
+        const Spacer(),
+        SizedBox(
+          width: 120,
+          height: 42,
+          child: OutlinedButton(onPressed: onCancel, child: const Text('取消')),
+        ),
+      ],
     );
   }
 }

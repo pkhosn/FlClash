@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/provider_tokens.dart';
 import '../config/api_health_service.dart';
+import 'app_dialog.dart';
 
 /// Auth page background for login/register/reset-password.
 ///
@@ -115,63 +116,51 @@ Future<void> showServiceProbeDialog(
     context: context,
     barrierColor: Colors.black38,
     builder: (context) {
-      return Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: SizedBox(
-          width: 420,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'API 连通性检测',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+      return V2ETDialogShell(
+        title: 'API 连通性检测',
+        icon: Icons.monitor_heart_rounded,
+        width: 460,
+        body: ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 320),
+          child: ListView.separated(
+            shrinkWrap: true,
+            itemCount: items.length,
+            separatorBuilder: (_, _) => const Divider(height: 1),
+            itemBuilder: (context, index) {
+              final item = items[index];
+              return ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(
+                  item.ok ? Icons.check_circle : Icons.error_outline,
+                  color: item.ok ? Colors.green : Colors.red,
                 ),
-                const SizedBox(height: 12),
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxHeight: 320),
-                  child: ListView.separated(
-                    shrinkWrap: true,
-                    itemCount: items.length,
-                    separatorBuilder: (_, _) => const Divider(height: 1),
-                    itemBuilder: (context, index) {
-                      final item = items[index];
-                      return ListTile(
-                        dense: true,
-                        contentPadding: EdgeInsets.zero,
-                        leading: Icon(
-                          item.ok ? Icons.check_circle : Icons.error_outline,
-                          color: item.ok ? Colors.green : Colors.red,
-                        ),
-                        title: Text(
-                          item.url,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        subtitle: Text(
-                          '${item.message}${item.latencyMs == null ? '' : ' · ${item.latencyMs}ms'}',
-                          style: const TextStyle(fontSize: 11),
-                        ),
-                      );
-                    },
+                title: Text(
+                  item.url,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 10),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('关闭'),
-                  ),
+                subtitle: Text(
+                  '${item.message}${item.latencyMs == null ? '' : ' · ${item.latencyMs}ms'}',
+                  style: const TextStyle(fontSize: 11),
                 ),
-              ],
-            ),
+              );
+            },
           ),
         ),
+        actions: [
+          const Spacer(),
+          SizedBox(
+            width: 120,
+            height: 42,
+            child: OutlinedButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('关闭'),
+            ),
+          ),
+        ],
       );
     },
   );

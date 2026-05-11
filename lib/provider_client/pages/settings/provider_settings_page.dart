@@ -10,6 +10,7 @@ import 'package:fl_clash/widgets/widgets.dart';
 
 import '../../theme/provider_tokens.dart';
 import '../../widgets/app_notice.dart';
+import '../../widgets/app_dialog.dart';
 import '../../widgets/app_button.dart';
 import '../../widgets/app_card.dart';
 
@@ -87,34 +88,52 @@ class V2ETProviderSettingsPage extends ConsumerWidget {
     await showDialog<void>(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          title: const Text('修改混合端口'),
-          content: TextField(
+        return V2ETDialogShell(
+          title: '修改混合端口',
+          icon: Icons.settings_ethernet_rounded,
+          width: 420,
+          body: TextField(
             controller: controller,
             keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               hintText: '请输入 1024-49151',
-              border: OutlineInputBorder(),
+              filled: true,
+              fillColor: const Color(0xFFF5F6F8),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+              ),
             ),
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('取消'),
+            Expanded(
+              child: SizedBox(
+                height: 44,
+                child: OutlinedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('取消'),
+                ),
+              ),
             ),
-            FilledButton(
-              onPressed: () {
-                final next = int.tryParse(controller.text.trim());
-                if (next == null || next < 1024 || next > 49151) {
-                  V2ETNotice.error(context, '端口范围必须在 1024-49151');
-                  return;
-                }
-                ref
-                    .read(patchClashConfigProvider.notifier)
-                    .update((state) => state.copyWith(mixedPort: next));
-                Navigator.of(context).pop();
-              },
-              child: const Text('保存'),
+            const SizedBox(width: 10),
+            Expanded(
+              child: SizedBox(
+                height: 44,
+                child: FilledButton(
+                  onPressed: () {
+                    final next = int.tryParse(controller.text.trim());
+                    if (next == null || next < 1024 || next > 49151) {
+                      V2ETNotice.error(context, '端口范围必须在 1024-49151');
+                      return;
+                    }
+                    ref
+                        .read(patchClashConfigProvider.notifier)
+                        .update((state) => state.copyWith(mixedPort: next));
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text('保存'),
+                ),
+              ),
             ),
           ],
         );
@@ -130,9 +149,11 @@ class V2ETProviderSettingsPage extends ConsumerWidget {
     await showDialog<void>(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          title: const Text('DNS模式'),
-          content: SizedBox(
+        return V2ETDialogShell(
+          title: 'DNS模式',
+          icon: Icons.dns_rounded,
+          width: 380,
+          body: SizedBox(
             width: 280,
             child: Column(
               mainAxisSize: MainAxisSize.min,

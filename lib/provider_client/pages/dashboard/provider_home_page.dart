@@ -11,6 +11,7 @@ import 'package:fl_clash/views/proxies/common.dart';
 import '../../config/remote_config_provider.dart';
 import '../../theme/provider_tokens.dart';
 import '../../widgets/app_card.dart';
+import '../../widgets/app_dialog.dart';
 import '../../data/v2et_runtime_providers.dart';
 import 'notice_dialog.dart';
 import 'proxy_group_dialog.dart';
@@ -251,238 +252,180 @@ class _GlobalModeWarningDialogState extends State<_GlobalModeWarningDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-      child: SizedBox(
-        width: 360,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 18),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFFF4E6),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(
-                      Icons.warning_amber_rounded,
-                      color: Color(0xFFF59E0B),
-                      size: 24,
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  const Expanded(
-                    child: Text(
-                      '全局模式警告',
+    return V2ETDialogShell(
+      title: '全局模式警告',
+      icon: Icons.warning_amber_rounded,
+      width: 420,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '全局模式会将所有流量通过代理服务器转发，可能会导致部分国内网站访问缓慢。建议使用规则模式以获得更好的体验。',
+            style: TextStyle(
+              fontSize: 15,
+              height: 1.5,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF374151),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEAF4FF),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.info_rounded, color: Color(0xFF3B82F6), size: 18),
+                    SizedBox(width: 8),
+                    Text(
+                      '使用提示',
                       style: TextStyle(
-                        fontSize: 34 / 2,
+                        fontSize: 16,
                         fontWeight: FontWeight.w900,
                         color: Color(0xFF1F2937),
                       ),
                     ),
-                  ),
-                  InkWell(
-                    onTap: () => Navigator.pop(context, false),
-                    child: const Icon(
-                      Icons.close_rounded,
-                      color: Color(0xFF8A8A8A),
-                      size: 28,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 18),
-              const Text(
-                '全局模式会将所有流量通过代理服务器转发，可能会导致部分国内网站访问缓慢。建议使用规则模式以获得更好的体验。',
-                style: TextStyle(
-                  fontSize: 15,
-                  height: 1.5,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF374151),
+                  ],
                 ),
-              ),
-              const SizedBox(height: 16),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEAF4FF),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Column(
+                SizedBox(height: 10),
+                Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.info_rounded,
-                          color: Color(0xFF3B82F6),
-                          size: 18,
-                        ),
-                        SizedBox(width: 8),
-                        Text(
-                          '使用提示',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w900,
-                            color: Color(0xFF1F2937),
-                          ),
-                        ),
-                      ],
+                    Icon(
+                      Icons.check_circle_outline_rounded,
+                      size: 16,
+                      color: Color(0xFF6B7280),
                     ),
-                    SizedBox(height: 10),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(
-                          Icons.check_circle_outline_rounded,
-                          size: 16,
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '建议使用规则模式以获得更好的体验',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
                           color: Color(0xFF6B7280),
                         ),
-                        SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            '建议使用规则模式以获得更好的体验',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF6B7280),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: 6),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(
-                          Icons.check_circle_outline_rounded,
-                          size: 16,
-                          color: Color(0xFF6B7280),
-                        ),
-                        SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            '请确保已选择代理节点（非 DIRECT 直连）',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF6B7280),
-                            ),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(height: 14),
-              InkWell(
-                borderRadius: BorderRadius.circular(8),
-                onTap: () => setState(() => dontShowAgain = !dontShowAgain),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 22,
-                        height: 22,
-                        child: Checkbox(
-                          value: dontShowAgain,
-                          activeColor: const Color(0xFFF59E0B),
-                          side: const BorderSide(color: Color(0xFF9CA3AF)),
-                          onChanged: (v) =>
-                              setState(() => dontShowAgain = v ?? false),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      const Text(
-                        '不再提示',
+                SizedBox(height: 6),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      Icons.check_circle_outline_rounded,
+                      size: 16,
+                      color: Color(0xFF6B7280),
+                    ),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '请确保已选择代理节点（非 DIRECT 直连）',
                         style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
                           color: Color(0xFF6B7280),
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(height: 14),
-              Row(
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: () => setState(() => dontShowAgain = !dontShowAgain),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Row(
                 children: [
-                  Expanded(
-                    child: SizedBox(
-                      height: 46,
-                      child: ElevatedButton(
-                        onPressed: () => Navigator.pop(context, false),
-                        style: ElevatedButton.styleFrom(
-                          elevation: 0,
-                          backgroundColor: const Color(0xFFF1F1F1),
-                          foregroundColor: const Color(0xFF4B5563),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                        ),
-                        child: const Text(
-                          '取消',
-                          style: TextStyle(
-                            fontSize: 25 / 2,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                      ),
+                  SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: Checkbox(
+                      value: dontShowAgain,
+                      activeColor: const Color(0xFFF59E0B),
+                      side: const BorderSide(color: Color(0xFF9CA3AF)),
+                      onChanged: (v) => setState(() => dontShowAgain = v ?? false),
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: SizedBox(
-                      height: 46,
-                      child: ElevatedButton(
-                        onPressed: () async {
-                          if (dontShowAgain) {
-                            final sp = await preferences
-                                .sharedPreferencesCompleter
-                                .future;
-                            await sp?.setBool(
-                              _V2ETProviderHomePageState._skipGlobalWarnKey,
-                              true,
-                            );
-                          }
-                          if (!context.mounted) return;
-                          Navigator.pop(context, true);
-                        },
-                        style: ElevatedButton.styleFrom(
-                          elevation: 0,
-                          backgroundColor: const Color(0xFFF59E0B),
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                        ),
-                        child: const Text(
-                          '确定',
-                          style: TextStyle(
-                            fontSize: 25 / 2,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                      ),
+                  const SizedBox(width: 10),
+                  const Text(
+                    '不再提示',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF6B7280),
                     ),
                   ),
                 ],
               ),
-            ],
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        Expanded(
+          child: SizedBox(
+            height: 46,
+            child: ElevatedButton(
+              onPressed: () => Navigator.pop(context, false),
+              style: ElevatedButton.styleFrom(
+                elevation: 0,
+                backgroundColor: const Color(0xFFF1F1F1),
+                foregroundColor: const Color(0xFF4B5563),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+              child: const Text(
+                '取消',
+                style: TextStyle(fontSize: 25 / 2, fontWeight: FontWeight.w900),
+              ),
+            ),
           ),
         ),
-      ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: SizedBox(
+            height: 46,
+            child: ElevatedButton(
+              onPressed: () async {
+                if (dontShowAgain) {
+                  final sp = await preferences.sharedPreferencesCompleter.future;
+                  await sp?.setBool(
+                    _V2ETProviderHomePageState._skipGlobalWarnKey,
+                    true,
+                  );
+                }
+                if (!context.mounted) return;
+                Navigator.pop(context, true);
+              },
+              style: ElevatedButton.styleFrom(
+                elevation: 0,
+                backgroundColor: const Color(0xFFF59E0B),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+              child: const Text(
+                '确定',
+                style: TextStyle(fontSize: 25 / 2, fontWeight: FontWeight.w900),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

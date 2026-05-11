@@ -19,6 +19,7 @@ import 'widgets/provider_window_frame.dart';
 import 'widgets/provider_sidebar.dart';
 import 'widgets/auth_background.dart';
 import 'widgets/app_notice.dart';
+import 'widgets/app_dialog.dart';
 import 'pages/auth/login_page.dart';
 import 'pages/auth/register_page.dart';
 import 'pages/auth/reset_password_page.dart';
@@ -653,52 +654,106 @@ class _ProviderClientAppShellState
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
-            return AlertDialog(
-              title: const Text('兑换礼品卡'),
-              content: TextField(
-                controller: controller,
-                autofocus: true,
-                enabled: !submitting,
-                decoration: const InputDecoration(
-                  hintText: '请输入兑换码',
-                  border: OutlineInputBorder(),
-                ),
+            return V2ETDialogShell(
+              title: '礼品卡',
+              icon: Icons.card_giftcard_rounded,
+              subtitle: '请输入礼品卡卡密进行兑换。',
+              body: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    controller: controller,
+                    autofocus: true,
+                    enabled: !submitting,
+                    decoration: InputDecoration(
+                      hintText: '请输入礼品卡卡密',
+                      prefixIcon: const Icon(Icons.card_giftcard_rounded),
+                      filled: true,
+                      fillColor: const Color(0xFFF5F6F8),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: const BorderSide(color: Color(0xFF5B8DEF)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    '兑换成功后会自动刷新用户资料、订阅信息和套餐列表。',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF6B7280),
+                    ),
+                  ),
+                ],
               ),
               actions: [
-                TextButton(
-                  onPressed: submitting
-                      ? null
-                      : () => Navigator.of(context).pop(),
-                  child: const Text('取消'),
+                Expanded(
+                  child: SizedBox(
+                    height: 46,
+                    child: OutlinedButton(
+                      onPressed: submitting
+                          ? null
+                          : () => Navigator.of(context).pop(),
+                      style: OutlinedButton.styleFrom(
+                        backgroundColor: const Color(0xFFF3F4F6),
+                        side: BorderSide.none,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: const Text('关闭'),
+                    ),
+                  ),
                 ),
-                FilledButton(
-                  onPressed: submitting
-                      ? null
-                      : () async {
-                          final code = controller.text.trim();
-                          if (code.isEmpty) return;
-                          setDialogState(() => submitting = true);
-                          try {
-                            await ref.read(v2etBridgeProvider).redeemGiftCard(code);
-                            if (!context.mounted) return;
-                            Navigator.of(context).pop();
-                            ref.invalidate(v2etSubscriptionProvider);
-                            ref.invalidate(v2etInviteProvider);
-                            if (!mounted) return;
-                            V2ETNotice.success(this.context, '兑换成功');
-                          } catch (e) {
-                            setDialogState(() => submitting = false);
-                            if (!mounted) return;
-                            V2ETNotice.error(this.context, '兑换失败: $e');
-                          }
-                        },
-                  child: submitting
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('立即兑换'),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: SizedBox(
+                    height: 46,
+                    child: FilledButton(
+                      onPressed: submitting
+                          ? null
+                          : () async {
+                              final code = controller.text.trim();
+                              if (code.isEmpty) return;
+                              setDialogState(() => submitting = true);
+                              try {
+                                await ref.read(v2etBridgeProvider).redeemGiftCard(code);
+                                if (!context.mounted) return;
+                                Navigator.of(context).pop();
+                                ref.invalidate(v2etSubscriptionProvider);
+                                ref.invalidate(v2etInviteProvider);
+                                if (!mounted) return;
+                                V2ETNotice.success(this.context, '兑换成功');
+                              } catch (e) {
+                                setDialogState(() => submitting = false);
+                                if (!mounted) return;
+                                V2ETNotice.error(this.context, '兑换失败: $e');
+                              }
+                            },
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF5B8DEF),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: submitting
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text('立即兑换'),
+                    ),
+                  ),
                 ),
               ],
             );
