@@ -7,6 +7,7 @@ class AppConfig {
   final String authBackgroundUrl;
   final String crispWebsiteId;
   final bool showNoticePopup;
+  final String officialWebsite;
 
   AppConfig({
     required this.apiUrl,
@@ -17,6 +18,7 @@ class AppConfig {
     required this.authBackgroundUrl,
     required this.crispWebsiteId,
     required this.showNoticePopup,
+    required this.officialWebsite,
   });
 
   factory AppConfig.fromJson(Map<String, dynamic> json) {
@@ -32,6 +34,10 @@ class AppConfig {
       authBackgroundUrl: (json['assets']?['auth_background'] ?? '').toString(),
       crispWebsiteId: (json['crisp']?['website_id'] ?? '').toString(),
       showNoticePopup: json['features']?['show_notice_popup'] != false,
+      officialWebsite: (json['links']?['official_site'] ??
+              json['app']?['officialWebsite'] ??
+              '')
+          .toString(),
     );
   }
 
@@ -44,6 +50,7 @@ class AppConfig {
     authBackgroundUrl: '',
     crispWebsiteId: '',
     showNoticePopup: true,
+    officialWebsite: '',
   );
 
   static List<String> _parseApiUrls(

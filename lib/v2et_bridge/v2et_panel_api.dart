@@ -344,6 +344,57 @@ class V2etPanelApi {
     throw StateError('checkout failed: pay url missing');
   }
 
+  Future<List<Map<String, dynamic>>> fetchPaymentMethods({
+    required Uri baseUrl,
+    required String accessToken,
+  }) async {
+    final uri = _join(baseUrl, '/api/v1/user/order/getPaymentMethod');
+    final response = await _dio.getUri<Map<String, dynamic>>(
+      uri,
+      options: Options(
+        headers: {
+          'Accept': 'application/json,text/plain,*/*',
+          'Authorization': accessToken,
+        },
+        responseType: ResponseType.json,
+      ),
+    );
+    final body = response.data ?? const <String, dynamic>{};
+    final data = body['data'];
+    if (data is List) {
+      return data
+          .whereType<Map>()
+          .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
+          .toList();
+    }
+    return const [];
+  }
+
+  Future<bool> checkOrderPaid({
+    required Uri baseUrl,
+    required String accessToken,
+    required String tradeNo,
+  }) async {
+    final uri = _join(baseUrl, '/api/v1/user/order/check');
+    final response = await _dio.postUri<Map<String, dynamic>>(
+      uri,
+      data: {'trade_no': tradeNo},
+      options: Options(
+        headers: {
+          'Accept': 'application/json,text/plain,*/*',
+          'Authorization': accessToken,
+        },
+        responseType: ResponseType.json,
+      ),
+    );
+    final body = response.data ?? const <String, dynamic>{};
+    final data = body['data'];
+    if (data is bool) return data;
+    if (data is num) return data.toInt() == 1;
+    final text = '${data ?? ''}'.trim().toLowerCase();
+    return text == '1' || text == 'true' || text == 'paid';
+  }
+
   Future<void> changePassword({
     required Uri baseUrl,
     required String accessToken,

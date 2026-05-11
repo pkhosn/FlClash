@@ -6,20 +6,24 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../theme/provider_tokens.dart';
 import '../../widgets/app_button.dart';
 
-Future<void> showV2ETProxyGroupDialog(BuildContext context) {
+Future<void> showV2ETProxyGroupDialog(
+  BuildContext context, {
+  String title = 'v2et',
+}) {
   return showDialog<void>(
     context: context,
     barrierColor: Colors.black.withValues(alpha: 0.50),
-    builder: (_) => const Dialog(
+    builder: (_) => Dialog(
       backgroundColor: Colors.transparent,
-      insetPadding: EdgeInsets.all(24),
-      child: V2ETProxyGroupDialog(),
+      insetPadding: const EdgeInsets.all(24),
+      child: V2ETProxyGroupDialog(title: title),
     ),
   );
 }
 
 class V2ETProxyGroupDialog extends ConsumerStatefulWidget {
-  const V2ETProxyGroupDialog({super.key});
+  const V2ETProxyGroupDialog({super.key, required this.title});
+  final String title;
 
   @override
   ConsumerState<V2ETProxyGroupDialog> createState() =>
@@ -111,7 +115,7 @@ class _V2ETProxyGroupDialogState extends ConsumerState<V2ETProxyGroupDialog> {
                     padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
                     child: Row(
                       children: [
-                        const Text('v2et', style: V2ETTokens.h3),
+                        Text(widget.title, style: V2ETTokens.h3),
                         const Spacer(),
                         V2ETButton(
                           label: '全部测速',
@@ -146,6 +150,8 @@ class _V2ETProxyGroupDialogState extends ConsumerState<V2ETProxyGroupDialog> {
                         return _NodeTile(
                           name: proxy.name,
                           delay: _formatDelay(ref, proxy.name, testUrl),
+                          timeout: _isTimeout(ref, proxy.name, testUrl),
+                          delayColor: _delayColor(ref, proxy.name, testUrl),
                           active: active,
                           testing: testingProxyNames.contains(proxy.name),
                           onTest: () async {
@@ -162,12 +168,14 @@ class _V2ETProxyGroupDialogState extends ConsumerState<V2ETProxyGroupDialog> {
                             }
                           },
                           onTap: () async {
+                            final navigator = Navigator.of(context);
                             await appController.changeProxy(
                               groupName: current.name,
                               proxyName: proxy.name,
                             );
                             await appController.updateGroups();
-                            if (mounted) setState(() {});
+                            if (!mounted) return;
+                            navigator.pop();
                           },
                         );
                       },
@@ -187,6 +195,20 @@ class _V2ETProxyGroupDialogState extends ConsumerState<V2ETProxyGroupDialog> {
     if (delay == null) return '--';
     if (delay <= 0) return '测试中';
     return '${delay}ms';
+  }
+
+  bool _isTimeout(WidgetRef ref, String proxyName, String? testUrl) {
+    final delay = ref.watch(getDelayProvider(proxyName: proxyName, testUrl: testUrl));
+    return (delay ?? 0) < 0;
+  }
+
+  Color _delayColor(WidgetRef ref, String proxyName, String? testUrl) {
+    final delay = ref.watch(getDelayProvider(proxyName: proxyName, testUrl: testUrl));
+    if (delay == null || delay == 0) return V2ETTokens.textMuted;
+    if (delay < 0) return const Color(0xFFEF4444);
+    if (delay < 100) return const Color(0xFF22C55E);
+    if (delay < 500) return const Color(0xFFF59E0B);
+    return const Color(0xFFEF4444);
   }
 }
 
@@ -256,6 +278,8 @@ class _NodeTile extends StatelessWidget {
   const _NodeTile({
     required this.name,
     required this.delay,
+    required this.timeout,
+    required this.delayColor,
     required this.active,
     required this.testing,
     required this.onTest,
@@ -264,6 +288,8 @@ class _NodeTile extends StatelessWidget {
 
   final String name;
   final String delay;
+  final bool timeout;
+  final Color delayColor;
   final bool active;
   final bool testing;
   final VoidCallback onTest;
@@ -292,11 +318,11 @@ class _NodeTile extends StatelessWidget {
               ),
             ),
             Text(
-              delay,
-              style: const TextStyle(
+              timeout ? '超时' : delay,
+              style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w900,
-                color: V2ETTokens.success,
+                color: delayColor,
               ),
             ),
             const SizedBox(width: 8),

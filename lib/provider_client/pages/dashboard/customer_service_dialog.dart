@@ -112,6 +112,7 @@ class _V2ETCustomerServiceDialogState extends State<V2ETCustomerServiceDialog> {
   Widget build(BuildContext context) {
     final crispId = widget.crispWebsiteId.trim();
     final hasCrisp = crispId.isNotEmpty && _controller != null;
+    final showInlineError = hasCrisp && (_errorText ?? '').isNotEmpty;
     return Container(
         decoration: BoxDecoration(
           color: Colors.white,
@@ -140,17 +141,18 @@ class _V2ETCustomerServiceDialogState extends State<V2ETCustomerServiceDialog> {
                   const Spacer(),
                   _TopAction(
                     icon: Icons.refresh_rounded,
-                    onTap: () async {
+                    onTap: () {
                       if (hasCrisp) {
-                        setState(() => _loading = true);
-                        _controller!.reload();
+                        final controller = _controller;
+                        if (controller != null) {
+                          setState(() {
+                            _loading = true;
+                            _errorText = null;
+                          });
+                          controller.reload();
+                        }
                         return;
                       }
-                      if (crispId.isEmpty) return;
-                      final uri = Uri.parse(
-                        'https://go.crisp.chat/chat/embed/?website_id=$crispId',
-                      );
-                      await launchUrl(uri, mode: LaunchMode.externalApplication);
                     },
                   ),
                   const SizedBox(width: 8),
@@ -171,6 +173,50 @@ class _V2ETCustomerServiceDialogState extends State<V2ETCustomerServiceDialog> {
                             child: ColoredBox(
                               color: Colors.white,
                               child: Center(child: CircularProgressIndicator()),
+                            ),
+                          ),
+                        if (showInlineError)
+                          Positioned.fill(
+                            child: ColoredBox(
+                              color: Colors.white,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 20),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Text(
+                                      '客服页面加载失败',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w800,
+                                        color: V2ETTokens.textPrimary,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      _errorText!,
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: V2ETTokens.textSecondary,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 14),
+                                    OutlinedButton(
+                                      onPressed: () async {
+                                        final uri = Uri.parse(
+                                          'https://go.crisp.chat/chat/embed/?website_id=$crispId',
+                                        );
+                                        await launchUrl(
+                                          uri,
+                                          mode: LaunchMode.externalApplication,
+                                        );
+                                      },
+                                      child: const Text('网页打开'),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
                           ),
                       ],

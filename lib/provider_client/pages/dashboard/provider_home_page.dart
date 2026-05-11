@@ -1,25 +1,66 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_clash/controller.dart';
+import 'package:fl_clash/common/preferences.dart';
 import 'package:fl_clash/providers/state.dart';
 import 'package:fl_clash/v2et_bridge/v2et_bridge.dart';
 import 'package:fl_clash/v2et_bridge/v2et_bridge_provider.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:fl_clash/views/proxies/common.dart';
+import '../../config/remote_config_provider.dart';
 import '../../theme/provider_tokens.dart';
 import '../../widgets/app_card.dart';
 import '../../data/v2et_runtime_providers.dart';
 import 'notice_dialog.dart';
 import 'proxy_group_dialog.dart';
 
-class V2ETProviderHomePage extends ConsumerWidget {
+class V2ETProviderHomePage extends ConsumerStatefulWidget {
   const V2ETProviderHomePage({super.key, this.showNoticePopup = true});
 
   final bool showNoticePopup;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<V2ETProviderHomePage> createState() =>
+      _V2ETProviderHomePageState();
+}
+
+class _V2ETProviderHomePageState extends ConsumerState<V2ETProviderHomePage>
+    with WidgetsBindingObserver {
+  static const _skipGlobalWarnKey = 'v2et_skip_global_mode_warning';
+  Timer? _ticker;
+  bool _didAutoDelayTest = false;
+  bool _autoDelayTesting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _ticker = Timer.periodic(const Duration(seconds: 20), (_) {
+      if (mounted) ref.invalidate(v2etSubscriptionProvider);
+    });
+  }
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      ref.invalidate(v2etSubscriptionProvider);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final subAsync = ref.watch(v2etSubscriptionProvider);
     final modeAsync = ref.watch(v2etProxyModeProvider);
     final isStart = ref.watch(isStartProvider);
+    final appConfig = ref.watch(appConfigProvider);
     final sub = subAsync.when(
       data: (d) => d,
       loading: () => null,
@@ -34,6 +75,12 @@ class V2ETProviderHomePage extends ConsumerWidget {
     final used = (sub?.usedBytes ?? 0).toDouble();
     final remain = (total - used).clamp(0, double.infinity).toDouble();
     final ratio = total > 0 ? (used / total).clamp(0, 1).toDouble() : 0.0;
+    final expiryText = _expiryText(sub?.expiredAt);
+    final resetDateText = _resetDateText(sub?.resetDay);
+
+    if (isStart && !_didAutoDelayTest && !_autoDelayTesting) {
+      Future.microtask(_runAutoDelayTestOnce);
+    }
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(24, 34, 24, 26),
@@ -44,10 +91,14 @@ class V2ETProviderHomePage extends ConsumerWidget {
             children: [
               _UsageCard(
                 onNotice: () => showV2ETNoticeDialog(context),
-                showNoticePopup: showNoticePopup,
+                onRefresh: () => ref.invalidate(v2etSubscriptionProvider),
+                onOpenWebsite: () => _openOfficialWebsite(appConfig.officialWebsite),
+                showNoticePopup: widget.showNoticePopup,
                 remainText: _fmtBytes(remain.toInt()),
                 usedText: _fmtBytes(used.toInt()),
                 totalText: _fmtBytes(total.toInt()),
+                expiryText: expiryText,
+                resetDateText: resetDateText,
                 progress: ratio,
               ),
               const SizedBox(height: 58),
@@ -61,12 +112,22 @@ class V2ETProviderHomePage extends ConsumerWidget {
               _ModeCard(
                 mode: mode,
                 onMode: (m) async {
+                  if (m == V2etProxyMode.global &&
+                      mode != V2etProxyMode.global) {
+                    final confirmed = await _confirmGlobalMode();
+                    if (!confirmed) return;
+                  }
                   await ref.read(v2etBridgeProvider).setProxyMode(m);
                   ref.invalidate(v2etProxyModeProvider);
                 },
               ),
               const SizedBox(height: 18),
-              _CurrentNodeCard(onOpen: () => showV2ETProxyGroupDialog(context)),
+              _CurrentNodeCard(
+                onOpen: () => showV2ETProxyGroupDialog(
+                  context,
+                  title: _nodeDialogTitle(appConfig.brandName),
+                ),
+              ),
             ],
           ),
         ),
@@ -85,22 +146,341 @@ class V2ETProviderHomePage extends ConsumerWidget {
     }
     return '${value.toStringAsFixed(idx == 0 ? 0 : 1)} ${unit[idx]}';
   }
+
+  String _expiryText(DateTime? expiredAt) {
+    if (expiredAt == null) return '--';
+    final now = DateTime.now();
+    final days = expiredAt.difference(now).inDays;
+    if (days <= 0) return '已到期';
+    return '$days 天';
+  }
+
+  String _resetDateText(int? resetDay) {
+    if (resetDay == null) return '--';
+    if (resetDay < 0) return '--';
+    final target = DateTime.now().add(Duration(days: resetDay));
+    final y = target.year.toString().padLeft(4, '0');
+    final m = target.month.toString().padLeft(2, '0');
+    final d = target.day.toString().padLeft(2, '0');
+    return '$y-$m-$d';
+  }
+
+  Future<void> _openOfficialWebsite(String url) async {
+    final text = url.trim();
+    if (text.isEmpty) return;
+    final uri = Uri.tryParse(text);
+    if (uri == null || !uri.hasScheme) return;
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  Future<void> _runAutoDelayTestOnce() async {
+    if (_didAutoDelayTest || _autoDelayTesting) return;
+    _autoDelayTesting = true;
+    try {
+      await appController.updateGroups();
+      final groups = ref.read(currentGroupsStateProvider).value;
+      for (final group in groups) {
+        await delayTest(group.all, group.testUrl);
+      }
+      await appController.updateGroups();
+      _didAutoDelayTest = true;
+    } catch (_) {
+      // Keep silent as requested: background behavior without popup/tips.
+    } finally {
+      _autoDelayTesting = false;
+    }
+  }
+
+  String _nodeDialogTitle(String brandName) {
+    final text = brandName.trim();
+    return text.isEmpty ? 'v2et' : text;
+  }
+
+  Future<bool> _confirmGlobalMode() async {
+    final sp = await preferences.sharedPreferencesCompleter.future;
+    final skip = sp?.getBool(_skipGlobalWarnKey) ?? false;
+    if (skip) return true;
+    if (!mounted) return false;
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black.withValues(alpha: 0.45),
+      builder: (context) => const _GlobalModeWarningDialog(),
+    );
+    return result == true;
+  }
+}
+
+class _GlobalModeWarningDialog extends StatefulWidget {
+  const _GlobalModeWarningDialog();
+
+  @override
+  State<_GlobalModeWarningDialog> createState() =>
+      _GlobalModeWarningDialogState();
+}
+
+class _GlobalModeWarningDialogState extends State<_GlobalModeWarningDialog> {
+  bool dontShowAgain = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+      child: SizedBox(
+        width: 360,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF4E6),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.warning_amber_rounded,
+                      color: Color(0xFFF59E0B),
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  const Expanded(
+                    child: Text(
+                      '全局模式警告',
+                      style: TextStyle(
+                        fontSize: 34 / 2,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF1F2937),
+                      ),
+                    ),
+                  ),
+                  InkWell(
+                    onTap: () => Navigator.pop(context, false),
+                    child: const Icon(
+                      Icons.close_rounded,
+                      color: Color(0xFF8A8A8A),
+                      size: 28,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              const Text(
+                '全局模式会将所有流量通过代理服务器转发，可能会导致部分国内网站访问缓慢。建议使用规则模式以获得更好的体验。',
+                style: TextStyle(
+                  fontSize: 15,
+                  height: 1.5,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF374151),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEAF4FF),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.info_rounded,
+                          color: Color(0xFF3B82F6),
+                          size: 18,
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          '使用提示',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF1F2937),
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 10),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          Icons.check_circle_outline_rounded,
+                          size: 16,
+                          color: Color(0xFF6B7280),
+                        ),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            '建议使用规则模式以获得更好的体验',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF6B7280),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 6),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          Icons.check_circle_outline_rounded,
+                          size: 16,
+                          color: Color(0xFF6B7280),
+                        ),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            '请确保已选择代理节点（非 DIRECT 直连）',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF6B7280),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: () => setState(() => dontShowAgain = !dontShowAgain),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: Checkbox(
+                          value: dontShowAgain,
+                          activeColor: const Color(0xFFF59E0B),
+                          side: const BorderSide(color: Color(0xFF9CA3AF)),
+                          onChanged: (v) =>
+                              setState(() => dontShowAgain = v ?? false),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      const Text(
+                        '不再提示',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF6B7280),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: SizedBox(
+                      height: 46,
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        style: ElevatedButton.styleFrom(
+                          elevation: 0,
+                          backgroundColor: const Color(0xFFF1F1F1),
+                          foregroundColor: const Color(0xFF4B5563),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        child: const Text(
+                          '取消',
+                          style: TextStyle(
+                            fontSize: 25 / 2,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: SizedBox(
+                      height: 46,
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          if (dontShowAgain) {
+                            final sp =
+                                await preferences.sharedPreferencesCompleter.future;
+                            await sp?.setBool(
+                              _V2ETProviderHomePageState._skipGlobalWarnKey,
+                              true,
+                            );
+                          }
+                          if (!context.mounted) return;
+                          Navigator.pop(context, true);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          elevation: 0,
+                          backgroundColor: const Color(0xFFF59E0B),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        child: const Text(
+                          '确定',
+                          style: TextStyle(
+                            fontSize: 25 / 2,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _UsageCard extends StatelessWidget {
   const _UsageCard({
     required this.onNotice,
+    required this.onRefresh,
+    required this.onOpenWebsite,
     required this.showNoticePopup,
     required this.remainText,
     required this.usedText,
     required this.totalText,
+    required this.expiryText,
+    required this.resetDateText,
     required this.progress,
   });
   final VoidCallback onNotice;
+  final VoidCallback onRefresh;
+  final VoidCallback onOpenWebsite;
   final bool showNoticePopup;
   final String remainText;
   final String usedText;
   final String totalText;
+  final String expiryText;
+  final String resetDateText;
   final double progress;
 
   @override
@@ -122,16 +502,16 @@ class _UsageCard extends StatelessWidget {
               Expanded(
                 child: _UsageStat(
                   label: '有效期',
-                  value: '21 天',
+                  value: expiryText,
                   align: CrossAxisAlignment.end,
                 ),
               ),
               if (showNoticePopup)
                 Row(
                   children: [
-                    _ActionIcon(icon: Icons.refresh_rounded, onTap: () {}),
+                    _ActionIcon(icon: Icons.refresh_rounded, onTap: onRefresh),
                     const SizedBox(width: 8),
-                    _ActionIcon(icon: Icons.public_rounded, onTap: () {}),
+                    _ActionIcon(icon: Icons.public_rounded, onTap: onOpenWebsite),
                     const SizedBox(width: 8),
                     Stack(
                       clipBehavior: Clip.none,
@@ -209,7 +589,7 @@ class _UsageCard extends StatelessWidget {
               const Spacer(),
               Text('共 $totalText', style: V2ETTokens.mini),
               const Spacer(),
-              const Text('预计重置日期 2026-06-01', style: V2ETTokens.mini),
+              Text('预计重置日期 $resetDateText', style: V2ETTokens.mini),
             ],
           ),
         ],
@@ -267,78 +647,170 @@ class _ActionIcon extends StatelessWidget {
   );
 }
 
-class _PowerButton extends StatelessWidget {
+class _PowerButton extends StatefulWidget {
   const _PowerButton({required this.started, required this.onTap});
   final bool started;
   final VoidCallback onTap;
+
+  @override
+  State<_PowerButton> createState() => _PowerButtonState();
+}
+
+class _PowerButtonState extends State<_PowerButton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  bool _hovering = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1800),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(88),
-          child: Container(
-            width: 176,
-            height: 176,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xFFF2F5F8), Color(0xFFE7ECF1)],
+    final started = widget.started;
+    final onTap = widget.onTap;
+    final scheme = Theme.of(context).colorScheme;
+    final primary = scheme.primary;
+    final lightPrimary = Color.lerp(primary, Colors.white, 0.62) ?? primary;
+    final darkPrimary = Color.lerp(primary, Colors.black, 0.14) ?? primary;
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        final breath = _hovering
+            ? (0.75 + (_controller.value * 0.25))
+            : (0.92 + (_controller.value * 0.08));
+        final glow = started ? 0.22 + (_controller.value * 0.18) : 0.0;
+
+        return Column(
+          children: [
+            MouseRegion(
+              onEnter: (_) => setState(() => _hovering = true),
+              onExit: (_) => setState(() => _hovering = false),
+              child: AnimatedScale(
+                duration: const Duration(milliseconds: 180),
+                scale: _hovering ? 1.03 : 1.0,
+                child: InkWell(
+                  onTap: onTap,
+                  borderRadius: BorderRadius.circular(88),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 240),
+                    width: 176,
+                    height: 176,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: started
+                            ? [lightPrimary, darkPrimary]
+                            : const [Color(0xFFF2F5F8), Color(0xFFE7ECF1)],
+                      ),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.14),
+                          blurRadius: 18,
+                          offset: const Offset(0, 8),
+                        ),
+                        const BoxShadow(
+                          color: Colors.white,
+                          blurRadius: 20,
+                          offset: Offset(-8, -8),
+                        ),
+                        if (started || _hovering)
+                          BoxShadow(
+                            color: primary.withValues(
+                              alpha: breath * (_hovering ? 0.32 : glow),
+                            ),
+                            blurRadius: _hovering ? 34 : 26,
+                            spreadRadius: _hovering ? 2 : 1,
+                          ),
+                      ],
+                    ),
+                    child: Stack(
+                      children: [
+                        Positioned(
+                          top: 16,
+                          left: 22,
+                          child: IgnorePointer(
+                            child: Container(
+                              width: 84,
+                              height: 84,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: RadialGradient(
+                                  colors: [
+                                    Color.lerp(primary, Colors.white, 0.78)!
+                                        .withValues(
+                                      alpha: _hovering ? 0.40 : 0.30,
+                                    ),
+                                    Colors.white.withValues(alpha: 0.0),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        Center(
+                          child: Icon(
+                            Icons.power_settings_new_rounded,
+                            size: 72,
+                            color: started
+                                ? Colors.white
+                                : Colors.grey.shade600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.14),
-                  blurRadius: 18,
-                  offset: const Offset(0, 8),
-                ),
-                const BoxShadow(
-                  color: Colors.white,
-                  blurRadius: 20,
-                  offset: Offset(-8, -8),
-                ),
-              ],
             ),
-            child: Icon(
-              Icons.power_settings_new_rounded,
-              size: 72,
-              color: started ? V2ETTokens.success : Colors.grey.shade600,
+            const SizedBox(height: 22),
+            Container(
+              height: 36,
+              padding: const EdgeInsets.symmetric(horizontal: 18),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: const Color(0xFFC8CDD4)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.circle_outlined,
+                    size: 16,
+                    color: started
+                        ? V2ETTokens.success
+                        : V2ETTokens.textSecondary,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    started ? '已连接' : '未连接',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: started
+                          ? V2ETTokens.success
+                          : V2ETTokens.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ),
-        const SizedBox(height: 22),
-        Container(
-          height: 36,
-          padding: const EdgeInsets.symmetric(horizontal: 18),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: const Color(0xFFC8CDD4)),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.circle_outlined,
-                size: 16,
-                color: started ? V2ETTokens.success : V2ETTokens.textSecondary,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                started ? '已连接' : '未连接',
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  color: started
-                      ? V2ETTokens.success
-                      : V2ETTokens.textSecondary,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
+          ],
+        );
+      },
     );
   }
 }
@@ -458,67 +930,74 @@ class _CurrentNodeCard extends ConsumerWidget {
     final delayText = delay == null ? '--' : (delay <= 0 ? '测试中' : '${delay}ms');
 
     return V2ETCard(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-      child: Row(
-        children: [
-          Container(
-            width: 42,
-            height: 36,
-            decoration: BoxDecoration(
-              color: V2ETTokens.cardSoft,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFFE3E8F0)),
-            ),
-            child: const Center(child: Text('🇭🇰')),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  groupName,
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
+      padding: EdgeInsets.zero,
+      child: InkWell(
+        onTap: onOpen,
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+          child: Row(
+            children: [
+              Container(
+                width: 42,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: V2ETTokens.cardSoft,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFE3E8F0)),
                 ),
-                const SizedBox(height: 4),
-                Text(selectedProxy, style: V2ETTokens.small),
-              ],
-            ),
-          ),
-          Text(
-            delayText,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w900,
-              color: V2ETTokens.success,
-            ),
-          ),
-          const SizedBox(width: 14),
-          Material(
-            color: const Color(0xFFECE7FF),
-            borderRadius: BorderRadius.circular(8),
-            child: InkWell(
-              onTap: onOpen,
-              borderRadius: BorderRadius.circular(8),
-              child: const SizedBox(
-                width: 32,
-                height: 32,
-                child: Icon(
-                  Icons.live_tv_rounded,
-                  color: Color(0xFF7357C8),
-                  size: 18,
+                child: const Center(child: Text('🇭🇰')),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      groupName,
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(selectedProxy, style: V2ETTokens.small),
+                  ],
                 ),
               ),
-            ),
+              Text(
+                delayText,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w900,
+                  color: V2ETTokens.success,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Material(
+                color: const Color(0xFFECE7FF),
+                borderRadius: BorderRadius.circular(8),
+                child: InkWell(
+                  onTap: onOpen,
+                  borderRadius: BorderRadius.circular(8),
+                  child: const SizedBox(
+                    width: 32,
+                    height: 32,
+                    child: Icon(
+                      Icons.live_tv_rounded,
+                      color: Color(0xFF7357C8),
+                      size: 18,
+                    ),
+                  ),
+                ),
+              ),
+              IconButton(
+                onPressed: onOpen,
+                icon: const Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  color: V2ETTokens.textSecondary,
+                ),
+              ),
+            ],
           ),
-          IconButton(
-            onPressed: onOpen,
-            icon: const Icon(
-              Icons.keyboard_arrow_down_rounded,
-              color: V2ETTokens.textSecondary,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

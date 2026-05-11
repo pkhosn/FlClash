@@ -25,6 +25,7 @@ class V2etSubscription {
     this.expiredAt,
     this.transferEnableBytes,
     this.usedBytes,
+    this.resetDay,
   });
 
   final Uri subscriptionUrl;
@@ -32,6 +33,7 @@ class V2etSubscription {
   final DateTime? expiredAt;
   final int? transferEnableBytes;
   final int? usedBytes;
+  final int? resetDay;
 }
 
 @immutable
@@ -40,11 +42,23 @@ class V2etStoreOffer {
     required this.id,
     required this.name,
     required this.prices,
+    required this.transferEnableBytes,
+    required this.deviceLimit,
+    required this.speedLimitMbps,
+    required this.content,
+    required this.show,
+    required this.renew,
   });
 
   final int id;
   final String name;
   final Map<String, double> prices;
+  final int transferEnableBytes;
+  final int deviceLimit;
+  final int speedLimitMbps;
+  final String content;
+  final bool show;
+  final bool renew;
 }
 
 @immutable
@@ -62,6 +76,14 @@ class V2etOrder {
   final double totalAmount;
   final String? planName;
   final DateTime? createdAt;
+}
+
+@immutable
+class V2etPaymentMethod {
+  const V2etPaymentMethod({required this.id, required this.name});
+
+  final int id;
+  final String name;
 }
 
 @immutable
@@ -134,9 +156,12 @@ abstract class V2etSubscriptionGateway {
 abstract class V2etStoreGateway {
   Future<List<V2etStoreOffer>> fetchStoreOffers();
   Future<List<V2etOrder>> fetchOrders();
+  Future<List<V2etPaymentMethod>> fetchPaymentMethods();
+  Future<bool> checkOrderPaid(String tradeNo);
   Future<Uri> startCheckout({
     required int planId,
     required String period,
+    int? method,
     String? couponCode,
   });
 }

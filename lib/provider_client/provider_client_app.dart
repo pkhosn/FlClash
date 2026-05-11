@@ -285,7 +285,7 @@ class _V2ETAuthGateState extends ConsumerState<V2ETAuthGate> {
         url: subscription.subscriptionUrl.toString(),
       ).update();
       appController.putProfile(profile);
-      await appController.updateStatus(true);
+      // Do not auto-connect on login. User must click connect manually.
       await _saveRememberedLogin(
         remember: remember,
         email: email,

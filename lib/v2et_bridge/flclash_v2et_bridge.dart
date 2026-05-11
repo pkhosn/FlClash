@@ -59,8 +59,21 @@ class FlClashV2etBridge implements V2etBridge {
   Future<Uri> startCheckout({
     required int planId,
     required String period,
+    int? method,
     String? couponCode,
-  }) => _startCheckout(planId: planId, period: period, couponCode: couponCode);
+  }) => _startCheckout(
+    planId: planId,
+    period: period,
+    method: method,
+    couponCode: couponCode,
+  );
+
+  @override
+  Future<List<V2etPaymentMethod>> fetchPaymentMethods() =>
+      _fetchPaymentMethods();
+
+  @override
+  Future<bool> checkOrderPaid(String tradeNo) => _checkOrderPaid(tradeNo);
 
   @override
   Future<V2etProxyMode> getProxyMode() async {
@@ -264,6 +277,7 @@ class FlClashV2etBridge implements V2etBridge {
 
     final transferEnable = _toInt(payload['transfer_enable']);
     final used = _toInt(payload['u']) + _toInt(payload['d']);
+    final resetDay = _toInt(payload['reset_day']);
     final expiredAtTs = _toInt(payload['expired_at']);
     final expiredAt = expiredAtTs > 0
         ? DateTime.fromMillisecondsSinceEpoch(expiredAtTs * 1000)
@@ -274,6 +288,7 @@ class FlClashV2etBridge implements V2etBridge {
       expiredAt: expiredAt,
       transferEnableBytes: transferEnable > 0 ? transferEnable : null,
       usedBytes: used > 0 ? used : null,
+      resetDay: resetDay >= 0 ? resetDay : null,
     );
   }
 
@@ -314,11 +329,25 @@ class FlClashV2etBridge implements V2etBridge {
         final value = raw is num ? raw.toDouble() : double.tryParse('$raw');
         if (value != null && value > 0) prices[key] = value;
       }
+      final transferEnableBytes = _toInt(item['transfer_enable']);
+      final deviceLimit = _toInt(item['device_limit']);
+      final speedLimitMbps = _toInt(item['speed_limit']);
+      final content = '${item['content'] ?? ''}'.trim();
+      final show = _toInt(item['show']) == 1;
+      final renew = _toInt(item['renew']) == 1;
       offers.add(
         V2etStoreOffer(
           id: id,
           name: name.isEmpty ? 'Plan #$id' : name,
           prices: prices,
+          transferEnableBytes: transferEnableBytes > 0
+              ? transferEnableBytes
+              : 0,
+          deviceLimit: deviceLimit > 0 ? deviceLimit : 0,
+          speedLimitMbps: speedLimitMbps > 0 ? speedLimitMbps : 0,
+          content: content,
+          show: show,
+          renew: renew,
         ),
       );
     }
@@ -328,6 +357,7 @@ class FlClashV2etBridge implements V2etBridge {
   Future<Uri> _startCheckout({
     required int planId,
     required String period,
+    int? method,
     String? couponCode,
   }) async {
     final session = await _sessionStore.read();
@@ -364,12 +394,46 @@ class FlClashV2etBridge implements V2etBridge {
       baseUrl: session.baseUrl,
       accessToken: session.accessToken,
       tradeNo: tradeNo,
+      method: method ?? 1,
     );
     final uri = Uri.tryParse(payUrl);
     if (uri == null || !uri.hasScheme) {
       throw StateError('invalid pay url');
     }
     return uri;
+  }
+
+  Future<List<V2etPaymentMethod>> _fetchPaymentMethods() async {
+    final session = await _sessionStore.read();
+    if (session == null || !session.hasToken) {
+      throw StateError('session not found');
+    }
+    final data = await _panelApi.fetchPaymentMethods(
+      baseUrl: session.baseUrl,
+      accessToken: session.accessToken,
+    );
+    final methods = <V2etPaymentMethod>[];
+    for (final item in data) {
+      final id = _toInt(item['id']);
+      if (id <= 0) continue;
+      final name =
+          '${item['name'] ?? item['payment'] ?? item['method_name'] ?? '支付方式'}'
+              .trim();
+      methods.add(V2etPaymentMethod(id: id, name: name));
+    }
+    return methods;
+  }
+
+  Future<bool> _checkOrderPaid(String tradeNo) async {
+    final session = await _sessionStore.read();
+    if (session == null || !session.hasToken) {
+      throw StateError('session not found');
+    }
+    return _panelApi.checkOrderPaid(
+      baseUrl: session.baseUrl,
+      accessToken: session.accessToken,
+      tradeNo: tradeNo,
+    );
   }
 
   Future<List<V2etOrder>> _fetchOrders() async {
