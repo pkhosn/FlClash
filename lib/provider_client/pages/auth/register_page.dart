@@ -12,6 +12,7 @@ class V2ETRegisterPage extends StatefulWidget {
     required this.brandName,
     required this.logoUrl,
     required this.crispWebsiteId,
+    required this.supportUrl,
     required this.authBackgroundUrl,
     required this.emailSuffixes,
     required this.whitelistEnabled,
@@ -30,6 +31,7 @@ class V2ETRegisterPage extends StatefulWidget {
   final String brandName;
   final String logoUrl;
   final String crispWebsiteId;
+  final String supportUrl;
   final String authBackgroundUrl;
   final List<String> emailSuffixes;
   final bool whitelistEnabled;
@@ -99,7 +101,7 @@ class _V2ETRegisterPageState extends State<V2ETRegisterPage> {
       onSupport: () => showV2ETCustomerServiceDialog(
         context,
         crispWebsiteId: widget.crispWebsiteId,
-        supportUrl: '',
+        supportUrl: widget.supportUrl,
         anchorRect: _anchorRect(),
       ),
       serviceOk: widget.serviceOk,

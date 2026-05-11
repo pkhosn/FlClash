@@ -15,6 +15,7 @@ class V2ETLoginPage extends StatefulWidget {
     required this.logoUrl,
     required this.authBackgroundUrl,
     required this.crispWebsiteId,
+    required this.supportUrl,
     required this.versionText,
     required this.languageCode,
     required this.onLanguageTap,
@@ -34,6 +35,7 @@ class V2ETLoginPage extends StatefulWidget {
   final String logoUrl;
   final String authBackgroundUrl;
   final String crispWebsiteId;
+  final String supportUrl;
   final String versionText;
   final String languageCode;
   final VoidCallback onLanguageTap;
@@ -84,7 +86,7 @@ class _V2ETLoginPageState extends State<V2ETLoginPage> {
       onSupport: () => showV2ETCustomerServiceDialog(
         context,
         crispWebsiteId: widget.crispWebsiteId,
-        supportUrl: '',
+        supportUrl: widget.supportUrl,
         anchorRect: _anchorRect(),
       ),
       serviceOk: widget.serviceOk,

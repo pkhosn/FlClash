@@ -3,6 +3,12 @@ import 'package:webview_flutter/webview_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../theme/provider_tokens.dart';
 
+bool isSupportedSupportUri(Uri? uri) {
+  if (uri == null || !uri.hasScheme) return false;
+  final scheme = uri.scheme.toLowerCase();
+  return scheme == 'http' || scheme == 'https';
+}
+
 Future<void> showV2ETCustomerServiceDialog(
   BuildContext context, {
   String crispWebsiteId = '',
@@ -99,11 +105,15 @@ class _V2ETCustomerServiceDialogState extends State<V2ETCustomerServiceDialog> {
     final crispId = widget.crispWebsiteId.trim();
     if (support.isNotEmpty) {
       final u = Uri.tryParse(support);
-      if (u != null && u.hasScheme) out.add(u);
+      if (u != null && isSupportedSupportUri(u)) out.add(u);
     }
     if (crispId.isNotEmpty) {
-      out.add(Uri.parse('https://go.crisp.chat/chat/embed/?website_id=$crispId'));
-      out.add(Uri.parse('https://go.crisp.chat/chatbox/$crispId/'));
+      final embed = Uri.tryParse(
+        'https://go.crisp.chat/chat/embed/?website_id=$crispId',
+      );
+      final chatBox = Uri.tryParse('https://go.crisp.chat/chatbox/$crispId/');
+      if (embed != null && isSupportedSupportUri(embed)) out.add(embed);
+      if (chatBox != null && isSupportedSupportUri(chatBox)) out.add(chatBox);
     }
     return out;
   }
@@ -114,10 +124,15 @@ class _V2ETCustomerServiceDialogState extends State<V2ETCustomerServiceDialog> {
         _loading = false;
         _controller = null;
         _webviewUnavailable = false;
+        _errorText = '暂无客服信息';
       });
       return;
     }
     final target = _candidateUris[_candidateIndex];
+    if (!isSupportedSupportUri(target)) {
+      _tryNextCandidateOrFail('客服地址无效');
+      return;
+    }
     try {
       _controller = WebViewController()
         ..setJavaScriptMode(JavaScriptMode.unrestricted)
@@ -128,6 +143,14 @@ class _V2ETCustomerServiceDialogState extends State<V2ETCustomerServiceDialog> {
             },
             onWebResourceError: (error) {
               _tryNextCandidateOrFail(error.description);
+            },
+            onNavigationRequest: (request) {
+              final uri = Uri.tryParse(request.url);
+              if (!isSupportedSupportUri(uri)) {
+                _tryNextCandidateOrFail('客服地址无效');
+                return NavigationDecision.prevent;
+              }
+              return NavigationDecision.navigate;
             },
           ),
         )
@@ -290,6 +313,14 @@ class _V2ETCustomerServiceDialogState extends State<V2ETCustomerServiceDialog> {
                                             : Uri.parse(
                                                 'https://go.crisp.chat/chat/embed/?website_id=$crispId',
                                               );
+                                        if (!isSupportedSupportUri(uri)) {
+                                          if (!mounted) return;
+                                          setState(() {
+                                            _errorText = '暂无客服信息';
+                                            _loading = false;
+                                          });
+                                          return;
+                                        }
                                         await launchUrl(
                                           uri,
                                           mode: LaunchMode.externalApplication,
@@ -309,7 +340,7 @@ class _V2ETCustomerServiceDialogState extends State<V2ETCustomerServiceDialog> {
                         padding: const EdgeInsets.symmetric(horizontal: 20),
                         child: Text(
                           crispId.isEmpty && support.isEmpty
-                              ? '未配置客服地址'
+                              ? '暂无客服信息'
                               : (_errorText ?? '客服页面加载失败，请点击刷新重试'),
                           textAlign: TextAlign.center,
                           style: const TextStyle(

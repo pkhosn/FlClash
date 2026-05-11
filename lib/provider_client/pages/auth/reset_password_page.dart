@@ -11,6 +11,7 @@ class V2ETResetPasswordPage extends StatefulWidget {
     required this.onLogin,
     required this.authBackgroundUrl,
     required this.crispWebsiteId,
+    required this.supportUrl,
     required this.languageCode,
     required this.onLanguageTap,
     required this.onThemeToggle,
@@ -22,6 +23,7 @@ class V2ETResetPasswordPage extends StatefulWidget {
   final VoidCallback onLogin;
   final String authBackgroundUrl;
   final String crispWebsiteId;
+  final String supportUrl;
   final String languageCode;
   final VoidCallback onLanguageTap;
   final VoidCallback onThemeToggle;
@@ -59,7 +61,7 @@ class _V2ETResetPasswordPageState extends State<V2ETResetPasswordPage> {
       onSupport: () => showV2ETCustomerServiceDialog(
         context,
         crispWebsiteId: widget.crispWebsiteId,
-        supportUrl: '',
+        supportUrl: widget.supportUrl,
         anchorRect: _anchorRect(),
       ),
       serviceOk: widget.serviceOk,
