@@ -55,24 +55,41 @@ class AuthBootstrapService {
   }
 
   List<String> _extractSuffixes(Map data) {
-    final raw =
-        data['email_whitelist_suffix'] ??
-        data['emailSuffix'] ??
-        data['email_suffix'];
+    final candidates = [
+      data['email_whitelist_suffix'],
+      data['emailSuffix'],
+      data['email_suffix'],
+      data['email_domain'],
+      data['email_domains'],
+      data['emailDomain'],
+      data['emailDomainWhitelist'],
+      data['email_white_list_suffix'],
+    ];
+    for (final raw in candidates) {
+      final list = _normalizeSuffixList(raw);
+      if (list.isNotEmpty) return list;
+    }
+    return const <String>[];
+  }
+
+  List<String> _normalizeSuffixList(dynamic raw) {
+    List<String> list = const [];
     if (raw is List) {
-      return raw
-          .map((e) => '$e'.trim())
-          .where((e) => e.isNotEmpty)
-          .toList(growable: false);
-    }
-    if (raw is String) {
-      return raw
-          .split(RegExp(r'[,|\s]+'))
+      list = raw.map((e) => '$e'.trim()).toList(growable: false);
+    } else if (raw is String && raw.trim().isNotEmpty) {
+      list = raw
+          .split(RegExp(r'[,|\s;]+'))
           .map((e) => e.trim())
-          .where((e) => e.isNotEmpty)
           .toList(growable: false);
+    } else {
+      return const [];
     }
-    return const [];
+    final normalized = list
+        .map((e) => e.startsWith('@') ? e.substring(1).trim() : e.trim())
+        .where((e) => e.isNotEmpty && e.contains('.'))
+        .toSet()
+        .toList(growable: false);
+    return normalized;
   }
 
   List<String> _extractLanguages(Map data) {
@@ -113,4 +130,3 @@ class AuthBootstrapService {
     return Uri.parse('$normalized$path');
   }
 }
-

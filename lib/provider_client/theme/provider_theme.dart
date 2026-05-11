@@ -10,7 +10,6 @@ class V2ETTheme {
       brightness: Brightness.light,
       primary: V2ETTokens.primary,
       surface: V2ETTokens.card,
-      background: V2ETTokens.background,
     );
 
     final base = ThemeData(
@@ -19,7 +18,7 @@ class V2ETTheme {
       scaffoldBackgroundColor: V2ETTokens.background,
       splashColor: Colors.transparent,
       highlightColor: Colors.transparent,
-      hoverColor: V2ETTokens.primarySoft.withOpacity(0.5),
+      hoverColor: V2ETTokens.primarySoft.withValues(alpha: 0.5),
       fontFamily: V2ETTokens.fontFamily,
       fontFamilyFallback: V2ETTokens.fontFallback,
     );
@@ -44,6 +43,49 @@ class V2ETTheme {
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(V2ETTokens.radiusM),
           borderSide: const BorderSide(color: V2ETTokens.border),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(V2ETTokens.radiusM),
+          borderSide: const BorderSide(color: V2ETTokens.primary, width: 1.2),
+        ),
+      ),
+    );
+  }
+
+  static ThemeData dark() {
+    final colorScheme = ColorScheme.fromSeed(
+      seedColor: V2ETTokens.primary,
+      brightness: Brightness.dark,
+      primary: V2ETTokens.primary,
+      surface: V2ETTokens.darkCard,
+    );
+
+    final base = ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.dark,
+      colorScheme: colorScheme,
+      scaffoldBackgroundColor: V2ETTokens.darkBackground,
+      splashColor: Colors.transparent,
+      highlightColor: Colors.transparent,
+      hoverColor: V2ETTokens.primarySoft.withValues(alpha: 0.35),
+      fontFamily: V2ETTokens.fontFamily,
+      fontFamilyFallback: V2ETTokens.fontFallback,
+    );
+
+    return base.copyWith(
+      textTheme: _withV2ETFont(base.textTheme),
+      primaryTextTheme: _withV2ETFont(base.primaryTextTheme),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: V2ETTokens.darkInput,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(V2ETTokens.radiusM),
+          borderSide: const BorderSide(color: V2ETTokens.darkBorder),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(V2ETTokens.radiusM),
+          borderSide: const BorderSide(color: V2ETTokens.darkBorder),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(V2ETTokens.radiusM),

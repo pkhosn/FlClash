@@ -23,29 +23,34 @@ class V2ETInput extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final inputBg = isDark ? V2ETTokens.darkInput : V2ETTokens.input;
+    final borderColor = isDark ? V2ETTokens.darkBorder : V2ETTokens.border;
+    final textColor = isDark ? V2ETTokens.darkTextPrimary : V2ETTokens.textPrimary;
+    final hintColor = isDark ? V2ETTokens.darkTextMuted : V2ETTokens.textMuted;
     return SizedBox(
       width: width,
       height: height,
       child: TextField(
         controller: controller,
         obscureText: obscureText,
-        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: V2ETTokens.textPrimary),
+        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: textColor),
         decoration: InputDecoration(
           hintText: hintText,
-          hintStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: V2ETTokens.textMuted),
-          prefixIcon: prefixIcon == null ? null : Icon(prefixIcon, size: 18, color: V2ETTokens.textMuted),
+          hintStyle: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: hintColor),
+          prefixIcon: prefixIcon == null ? null : Icon(prefixIcon, size: 18, color: hintColor),
           suffixIcon: suffix,
           isDense: true,
           filled: true,
-          fillColor: V2ETTokens.input,
+          fillColor: inputBg,
           contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(V2ETTokens.radiusM),
-            borderSide: const BorderSide(color: V2ETTokens.border),
+            borderSide: BorderSide(color: borderColor),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(V2ETTokens.radiusM),
-            borderSide: const BorderSide(color: V2ETTokens.border),
+            borderSide: BorderSide(color: borderColor),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(V2ETTokens.radiusM),

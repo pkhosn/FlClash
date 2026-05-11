@@ -18,6 +18,7 @@ class AuthBackground extends StatelessWidget {
     this.showServicePill = true,
     this.backgroundImage,
     this.showMockDecoration = false,
+    this.supportButtonKey,
   });
 
   final Widget child;
@@ -27,6 +28,7 @@ class AuthBackground extends StatelessWidget {
   final bool serviceOk;
   final bool showServicePill;
   final ImageProvider? backgroundImage;
+  final GlobalKey? supportButtonKey;
 
   /// Keep false by default. The previous blue gradient/Sisyphus mock background
   /// was only for visual exploration and should not be the default client skin.
@@ -34,6 +36,11 @@ class AuthBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final pillBg = serviceOk
+        ? (isDark ? const Color(0xFF123A2E) : V2ETTokens.primarySoft)
+        : (isDark ? const Color(0xFF4A1E1E) : const Color(0xFFFFECEC));
+    final pillColor = serviceOk ? V2ETTokens.success : Colors.red;
     return Stack(
       children: [
         Positioned.fill(child: _BackgroundLayer(image: backgroundImage, showMockDecoration: showMockDecoration)),
@@ -56,23 +63,17 @@ class AuthBackground extends StatelessWidget {
                   height: 32,
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   decoration: BoxDecoration(
-                    color: serviceOk
-                        ? V2ETTokens.primarySoft
-                        : const Color(0xFFFFECEC),
+                    color: pillBg,
                     borderRadius: BorderRadius.circular(18),
                   ),
                   child: Row(
                     children: [
-                      Icon(
-                        serviceOk ? Icons.check_circle : Icons.error_outline,
-                        color: serviceOk ? V2ETTokens.success : Colors.red,
-                        size: 15,
-                      ),
+                      Icon(serviceOk ? Icons.check_circle : Icons.error_outline, color: pillColor, size: 15),
                       const SizedBox(width: 6),
                       Text(
                         serviceOk ? '服务可用' : '服务异常',
                         style: TextStyle(
-                          color: serviceOk ? V2ETTokens.success : Colors.red,
+                          color: pillColor,
                           fontSize: 12,
                           fontWeight: FontWeight.w900,
                         ),
@@ -80,7 +81,7 @@ class AuthBackground extends StatelessWidget {
                       const SizedBox(width: 4),
                       Icon(
                         Icons.keyboard_arrow_down_rounded,
-                        color: serviceOk ? V2ETTokens.success : Colors.red,
+                        color: pillColor,
                         size: 16,
                       ),
                     ],
@@ -94,8 +95,9 @@ class AuthBackground extends StatelessWidget {
           right: 24,
           bottom: 28,
           child: FloatingActionButton(
+            key: supportButtonKey,
             mini: true,
-            backgroundColor: V2ETTokens.primary,
+            backgroundColor: isDark ? const Color(0xFF2454B8) : V2ETTokens.primary,
             onPressed: onSupport,
             child: const Icon(Icons.support_agent_rounded, color: Colors.white),
           ),
@@ -183,10 +185,11 @@ class _BackgroundLayer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     if (image != null) {
       return DecoratedBox(
         decoration: BoxDecoration(
-          color: V2ETTokens.authBackground,
+          color: isDark ? V2ETTokens.darkAuthBackground : V2ETTokens.authBackground,
           image: DecorationImage(image: image!, fit: BoxFit.cover),
         ),
       );
@@ -211,9 +214,9 @@ class _BackgroundLayer extends StatelessWidget {
       );
     }
 
-    return const DecoratedBox(
+    return DecoratedBox(
       decoration: BoxDecoration(
-        color: V2ETTokens.authBackground,
+        color: isDark ? V2ETTokens.darkAuthBackground : V2ETTokens.authBackground,
       ),
     );
   }
@@ -227,13 +230,18 @@ class AuthGlassCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: width,
       padding: padding,
       decoration: BoxDecoration(
-        color: const Color(0xF2F7FBFF),
+        color: isDark ? const Color(0xF0222F40) : const Color(0xF2F7FBFF),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withOpacity(0.75)),
+        border: Border.all(
+          color: isDark
+              ? const Color(0xFF334155)
+              : Colors.white.withValues(alpha: 0.75),
+        ),
         boxShadow: const [V2ETTokens.softShadow],
       ),
       child: child,
@@ -247,8 +255,9 @@ class AuthToolButton extends StatelessWidget {
   final VoidCallback? onTap;
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Material(
-      color: const Color(0xFFE9F1FA),
+      color: isDark ? const Color(0xFF2A3A4F) : const Color(0xFFE9F1FA),
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),

@@ -36,6 +36,7 @@ class V2ETResetPasswordPage extends StatefulWidget {
 
 class _V2ETResetPasswordPageState extends State<V2ETResetPasswordPage> {
   final _emailController = TextEditingController();
+  final _supportButtonKey = GlobalKey();
 
   @override
   void dispose() {
@@ -45,6 +46,11 @@ class _V2ETResetPasswordPageState extends State<V2ETResetPasswordPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isEn = widget.languageCode.toLowerCase().startsWith('en');
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textPrimary = isDark ? V2ETTokens.darkTextPrimary : V2ETTokens.textPrimary;
+    final textSecondary = isDark ? V2ETTokens.darkTextSecondary : V2ETTokens.textSecondary;
+    final dividerColor = isDark ? V2ETTokens.darkBorder : V2ETTokens.border;
     return AuthBackground(
       backgroundImage: widget.authBackgroundUrl.isNotEmpty
           ? NetworkImage(widget.authBackgroundUrl)
@@ -53,10 +59,12 @@ class _V2ETResetPasswordPageState extends State<V2ETResetPasswordPage> {
       onSupport: () => showV2ETCustomerServiceDialog(
         context,
         crispWebsiteId: widget.crispWebsiteId,
+        anchorRect: _anchorRect(),
       ),
       serviceOk: widget.serviceOk,
       onServiceTap: widget.onServiceTap,
       showServicePill: true,
+      supportButtonKey: _supportButtonKey,
       child: AuthGlassCard(
         width: 445,
         child: Column(
@@ -71,7 +79,7 @@ class _V2ETResetPasswordPageState extends State<V2ETResetPasswordPage> {
                     widget.isDarkMode
                         ? Icons.nightlight_round
                         : Icons.wb_sunny_outlined,
-                    color: V2ETTokens.textPrimary,
+                    color: textPrimary,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -79,9 +87,9 @@ class _V2ETResetPasswordPageState extends State<V2ETResetPasswordPage> {
                   onTap: widget.onLanguageTap,
                   child: Text(
                     _languageLabel(widget.languageCode),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.w900,
-                      color: V2ETTokens.textPrimary,
+                      color: textPrimary,
                     ),
                   ),
                 ),
@@ -97,28 +105,34 @@ class _V2ETResetPasswordPageState extends State<V2ETResetPasswordPage> {
               ),
               child: const Icon(
                 Icons.lock_reset_rounded,
-                color: V2ETTokens.textPrimary,
+                color: Colors.black87,
                 size: 34,
               ),
             ),
             const SizedBox(height: 24),
-            const Text('重置密码', style: V2ETTokens.h1),
+            Text(isEn ? 'Reset Password' : '重置密码', style: V2ETTokens.h1),
             const SizedBox(height: 26),
-            const Text(
-              '请输入您的邮箱地址，我们会发送验证码到您的邮箱',
+            Text(
+              isEn
+                  ? 'Enter your email and we will send a verification code.'
+                  : '请输入您的邮箱地址，我们会发送验证码到您的邮箱',
               textAlign: TextAlign.center,
-              style: V2ETTokens.small,
+              style: TextStyle(
+                fontSize: 12,
+                height: 1.35,
+                color: textSecondary,
+              ),
             ),
             const SizedBox(height: 26),
             V2ETInput(
               controller: _emailController,
-              hintText: '请输入邮箱地址',
+              hintText: isEn ? 'Enter email address' : '请输入邮箱地址',
               prefixIcon: Icons.mail_outline_rounded,
               height: 40,
             ),
             const SizedBox(height: 20),
             V2ETButton(
-              label: '发送验证码',
+              label: isEn ? 'Send Code' : '发送验证码',
               tone: V2ETButtonTone.dark,
               height: 42,
               width: double.infinity,
@@ -130,31 +144,31 @@ class _V2ETResetPasswordPageState extends State<V2ETResetPasswordPage> {
             ),
             const SizedBox(height: 26),
             Row(
-              children: const [
-                Expanded(child: Divider(color: V2ETTokens.border)),
+              children: [
+                Expanded(child: Divider(color: dividerColor)),
                 Padding(
                   padding: EdgeInsets.symmetric(horizontal: 12),
                   child: Text('或', style: V2ETTokens.small),
                 ),
-                Expanded(child: Divider(color: V2ETTokens.border)),
+                Expanded(child: Divider(color: dividerColor)),
               ],
             ),
             const SizedBox(height: 14),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Text(
-                  '记起密码了?',
+                Text(
+                  isEn ? 'Remember your password?' : '记起密码了?',
                   style: TextStyle(
                     fontSize: 13,
-                    color: V2ETTokens.textSecondary,
+                    color: textSecondary,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
                 TextButton(
                   onPressed: widget.onLogin,
-                  child: const Text(
-                    '返回登录',
+                  child: Text(
+                    isEn ? 'Back to Login' : '返回登录',
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w900,
@@ -175,5 +189,14 @@ class _V2ETResetPasswordPageState extends State<V2ETResetPasswordPage> {
     if (lower.startsWith('zh')) return '中';
     if (lower.startsWith('en')) return 'EN';
     return code.length <= 4 ? code.toUpperCase() : code.substring(0, 4);
+  }
+
+  Rect? _anchorRect() {
+    final currentContext = _supportButtonKey.currentContext;
+    if (currentContext == null) return null;
+    final box = currentContext.findRenderObject();
+    if (box is! RenderBox) return null;
+    final offset = box.localToGlobal(Offset.zero);
+    return offset & box.size;
   }
 }

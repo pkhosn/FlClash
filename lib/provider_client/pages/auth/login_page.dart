@@ -53,6 +53,7 @@ class _V2ETLoginPageState extends State<V2ETLoginPage> {
   bool remember = false;
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _supportButtonKey = GlobalKey();
 
   @override
   void initState() {
@@ -71,6 +72,11 @@ class _V2ETLoginPageState extends State<V2ETLoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isEn = widget.languageCode.toLowerCase().startsWith('en');
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textPrimary = isDark ? V2ETTokens.darkTextPrimary : V2ETTokens.textPrimary;
+    final textSecondary = isDark ? V2ETTokens.darkTextSecondary : V2ETTokens.textSecondary;
+    final dividerColor = isDark ? V2ETTokens.darkBorder : V2ETTokens.border;
     return AuthBackground(
       backgroundImage: widget.authBackgroundUrl.isNotEmpty
           ? NetworkImage(widget.authBackgroundUrl)
@@ -78,9 +84,11 @@ class _V2ETLoginPageState extends State<V2ETLoginPage> {
       onSupport: () => showV2ETCustomerServiceDialog(
         context,
         crispWebsiteId: widget.crispWebsiteId,
+        anchorRect: _anchorRect(),
       ),
       serviceOk: widget.serviceOk,
       onServiceTap: widget.onServiceTap,
+      supportButtonKey: _supportButtonKey,
       child: AuthGlassCard(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -94,7 +102,7 @@ class _V2ETLoginPageState extends State<V2ETLoginPage> {
                     widget.isDarkMode
                         ? Icons.nightlight_round
                         : Icons.wb_sunny_outlined,
-                    color: V2ETTokens.textPrimary,
+                    color: textPrimary,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -102,9 +110,9 @@ class _V2ETLoginPageState extends State<V2ETLoginPage> {
                   onTap: widget.onLanguageTap,
                   child: Text(
                     _languageLabel(widget.languageCode),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.w900,
-                      color: V2ETTokens.textPrimary,
+                      color: textPrimary,
                     ),
                   ),
                 ),
@@ -117,14 +125,14 @@ class _V2ETLoginPageState extends State<V2ETLoginPage> {
             const SizedBox(height: 26),
             V2ETInput(
               controller: _emailController,
-              hintText: '请输入邮箱',
+              hintText: isEn ? 'Enter email' : '请输入邮箱',
               prefixIcon: Icons.mail_outline_rounded,
               height: 40,
             ),
             const SizedBox(height: 12),
             V2ETInput(
               controller: _passwordController,
-              hintText: '请输入密码',
+              hintText: isEn ? 'Enter password' : '请输入密码',
               prefixIcon: Icons.lock_outline_rounded,
               obscureText: true,
               height: 40,
@@ -143,23 +151,23 @@ class _V2ETLoginPageState extends State<V2ETLoginPage> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                const Text(
-                  '记住我',
+                Text(
+                  isEn ? 'Remember me' : '记住我',
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: V2ETTokens.textSecondary,
+                    color: textSecondary,
                   ),
                 ),
                 const Spacer(),
                 TextButton(
                   onPressed: widget.onResetPassword,
-                  child: const Text(
-                    '忘记密码',
+                  child: Text(
+                    isEn ? 'Forgot Password' : '忘记密码',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w800,
-                      color: V2ETTokens.textPrimary,
+                      color: textPrimary,
                     ),
                   ),
                 ),
@@ -167,7 +175,7 @@ class _V2ETLoginPageState extends State<V2ETLoginPage> {
             ),
             const SizedBox(height: 10),
             V2ETButton(
-              label: '登录',
+              label: isEn ? 'Login' : '登录',
               tone: V2ETButtonTone.primary,
               height: 40,
               width: double.infinity,
@@ -181,31 +189,31 @@ class _V2ETLoginPageState extends State<V2ETLoginPage> {
             ),
             const SizedBox(height: 28),
             Row(
-              children: const [
-                Expanded(child: Divider(color: V2ETTokens.border)),
+              children: [
+                Expanded(child: Divider(color: dividerColor)),
                 Padding(
                   padding: EdgeInsets.symmetric(horizontal: 12),
                   child: Text('或', style: V2ETTokens.small),
                 ),
-                Expanded(child: Divider(color: V2ETTokens.border)),
+                Expanded(child: Divider(color: dividerColor)),
               ],
             ),
             const SizedBox(height: 18),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Text(
-                  '还没有账户?',
+                Text(
+                  isEn ? 'No account yet?' : '还没有账户?',
                   style: TextStyle(
                     fontSize: 13,
-                    color: V2ETTokens.textSecondary,
+                    color: textSecondary,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
                 TextButton(
                   onPressed: widget.onRegister,
-                  child: const Text(
-                    '立即注册',
+                  child: Text(
+                    isEn ? 'Register Now' : '立即注册',
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w900,
@@ -239,7 +247,7 @@ class _V2ETLoginPageState extends State<V2ETLoginPage> {
           width: 72,
           height: 72,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => _fallbackLogo(),
+          errorBuilder: (context, error, stackTrace) => _fallbackLogo(),
         ),
       );
     }
@@ -263,5 +271,14 @@ class _V2ETLoginPageState extends State<V2ETLoginPage> {
     if (lower.startsWith('zh')) return '中';
     if (lower.startsWith('en')) return 'EN';
     return code.length <= 4 ? code.toUpperCase() : code.substring(0, 4);
+  }
+
+  Rect? _anchorRect() {
+    final currentContext = _supportButtonKey.currentContext;
+    if (currentContext == null) return null;
+    final box = currentContext.findRenderObject();
+    if (box is! RenderBox) return null;
+    final offset = box.localToGlobal(Offset.zero);
+    return offset & box.size;
   }
 }

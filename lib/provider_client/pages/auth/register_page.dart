@@ -11,6 +11,7 @@ class V2ETRegisterPage extends StatefulWidget {
     required this.onLogin,
     required this.brandName,
     required this.logoUrl,
+    required this.crispWebsiteId,
     required this.authBackgroundUrl,
     required this.emailSuffixes,
     required this.languageCode,
@@ -25,6 +26,7 @@ class V2ETRegisterPage extends StatefulWidget {
   final VoidCallback onLogin;
   final String brandName;
   final String logoUrl;
+  final String crispWebsiteId;
   final String authBackgroundUrl;
   final List<String> emailSuffixes;
   final String languageCode;
@@ -54,6 +56,7 @@ class _V2ETRegisterPageState extends State<V2ETRegisterPage> {
   final _codeController = TextEditingController();
   bool _submitting = false;
   bool _sendingCode = false;
+  final _supportButtonKey = GlobalKey();
 
   @override
   void initState() {
@@ -74,15 +77,25 @@ class _V2ETRegisterPageState extends State<V2ETRegisterPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isEn = widget.languageCode.toLowerCase().startsWith('en');
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textPrimary = isDark ? V2ETTokens.darkTextPrimary : V2ETTokens.textPrimary;
+    final textSecondary = isDark ? V2ETTokens.darkTextSecondary : V2ETTokens.textSecondary;
+    final dividerColor = isDark ? V2ETTokens.darkBorder : V2ETTokens.border;
     return AuthBackground(
       backgroundImage: widget.authBackgroundUrl.isNotEmpty
           ? NetworkImage(widget.authBackgroundUrl)
           : null,
       onBack: widget.onLogin,
-      onSupport: () => showV2ETCustomerServiceDialog(context),
+      onSupport: () => showV2ETCustomerServiceDialog(
+        context,
+        crispWebsiteId: widget.crispWebsiteId,
+        anchorRect: _anchorRect(),
+      ),
       serviceOk: widget.serviceOk,
       onServiceTap: widget.onServiceTap,
       showServicePill: true,
+      supportButtonKey: _supportButtonKey,
       child: AuthGlassCard(
         width: 445,
         child: Column(
@@ -97,7 +110,7 @@ class _V2ETRegisterPageState extends State<V2ETRegisterPage> {
                     widget.isDarkMode
                         ? Icons.nightlight_round
                         : Icons.wb_sunny_outlined,
-                    color: V2ETTokens.textPrimary,
+                    color: textPrimary,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -105,9 +118,9 @@ class _V2ETRegisterPageState extends State<V2ETRegisterPage> {
                   onTap: widget.onLanguageTap,
                   child: Text(
                     _languageLabel(widget.languageCode),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.w900,
-                      color: V2ETTokens.textPrimary,
+                      color: textPrimary,
                     ),
                   ),
                 ),
@@ -123,75 +136,46 @@ class _V2ETRegisterPageState extends State<V2ETRegisterPage> {
               ),
               child: const Icon(
                 Icons.person_add_alt_1_rounded,
-                color: V2ETTokens.textPrimary,
+                color: Colors.black87,
                 size: 34,
               ),
             ),
             const SizedBox(height: 22),
-            Text('创建账户 - ${widget.brandName}', style: V2ETTokens.h1),
+            Text(
+              isEn ? 'Create Account - ${widget.brandName}' : '创建账户 - ${widget.brandName}',
+              style: V2ETTokens.h1,
+            ),
             const SizedBox(height: 8),
-            const Text('填写以下信息完成注册', style: V2ETTokens.small),
+            Text(
+              isEn ? 'Fill in details to continue' : '填写以下信息完成注册',
+              style: V2ETTokens.small,
+            ),
             const SizedBox(height: 26),
             Row(
               children: [
                 Expanded(
                   child: V2ETInput(
                     controller: _userController,
-                    hintText: '邮箱用户名',
+                    hintText: isEn ? 'Email username' : '邮箱用户名',
                     prefixIcon: Icons.mail_outline_rounded,
                     height: 40,
                   ),
                 ),
                 const SizedBox(width: 8),
-                PopupMenuButton<String>(
-                  initialValue: selectedSuffix,
+                _EmailSuffixMenu(
+                  selected: selectedSuffix,
+                  items: widget.emailSuffixes.isEmpty
+                      ? const ['qq.com']
+                      : widget.emailSuffixes,
+                  isDark: isDark,
                   onSelected: (v) => setState(() => selectedSuffix = v),
-                  itemBuilder: (context) {
-                    final items = widget.emailSuffixes.isEmpty
-                        ? const ['qq.com']
-                        : widget.emailSuffixes;
-                    return items
-                        .map(
-                          (e) => PopupMenuItem<String>(
-                            value: e,
-                            child: Text(e),
-                          ),
-                        )
-                        .toList();
-                  },
-                  child: Container(
-                  height: 40,
-                  width: 138,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  decoration: BoxDecoration(
-                    color: V2ETTokens.input,
-                    borderRadius: BorderRadius.circular(V2ETTokens.radiusM),
-                    border: Border.all(color: V2ETTokens.border),
-                  ),
-                  child: Row(
-                    children: [
-                      const Text(
-                        '@',
-                        style: TextStyle(fontWeight: FontWeight.w800),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          selectedSuffix,
-                          style: const TextStyle(fontWeight: FontWeight.w800),
-                        ),
-                      ),
-                      const Icon(Icons.keyboard_arrow_down_rounded),
-                    ],
-                  ),
-                ),
                 ),
               ],
             ),
             const SizedBox(height: 12),
             V2ETInput(
               controller: _passwordController,
-              hintText: '请输入密码',
+              hintText: isEn ? 'Enter password' : '请输入密码',
               prefixIcon: Icons.lock_outline_rounded,
               obscureText: true,
               height: 40,
@@ -199,7 +183,7 @@ class _V2ETRegisterPageState extends State<V2ETRegisterPage> {
             const SizedBox(height: 12),
             V2ETInput(
               controller: _confirmController,
-              hintText: '请再次输入密码',
+              hintText: isEn ? 'Confirm password' : '请再次输入密码',
               prefixIcon: Icons.lock_outline_rounded,
               obscureText: true,
               height: 40,
@@ -210,14 +194,14 @@ class _V2ETRegisterPageState extends State<V2ETRegisterPage> {
                 Expanded(
                   child: V2ETInput(
                     controller: _codeController,
-                    hintText: '请输入6位验证码',
+                    hintText: isEn ? '6-digit email code' : '请输入6位验证码',
                     prefixIcon: Icons.verified_outlined,
                     height: 40,
                   ),
                 ),
                 const SizedBox(width: 10),
                 V2ETButton(
-                  label: _sendingCode ? '发送中' : '发送',
+                  label: _sendingCode ? (isEn ? 'Sending' : '发送中') : (isEn ? 'Send' : '发送'),
                   tone: V2ETButtonTone.dark,
                   width: 62,
                   height: 40,
@@ -239,14 +223,14 @@ class _V2ETRegisterPageState extends State<V2ETRegisterPage> {
               ],
             ),
             const SizedBox(height: 12),
-            const V2ETInput(
-              hintText: '请输入邀请码',
+            V2ETInput(
+              hintText: isEn ? 'Invite code (optional)' : '请输入邀请码',
               prefixIcon: Icons.card_giftcard_rounded,
               height: 40,
             ),
             const SizedBox(height: 20),
             V2ETButton(
-              label: _submitting ? '提交中' : '注册',
+              label: _submitting ? (isEn ? 'Submitting' : '提交中') : (isEn ? 'Register' : '注册'),
               tone: V2ETButtonTone.dark,
               height: 40,
               width: double.infinity,
@@ -272,32 +256,32 @@ class _V2ETRegisterPageState extends State<V2ETRegisterPage> {
             ),
             const SizedBox(height: 24),
             Row(
-              children: const [
-                Expanded(child: Divider(color: V2ETTokens.border)),
+              children: [
+                Expanded(child: Divider(color: dividerColor)),
                 Padding(
                   padding: EdgeInsets.symmetric(horizontal: 12),
                   child: Text('或', style: V2ETTokens.small),
                 ),
-                Expanded(child: Divider(color: V2ETTokens.border)),
+                Expanded(child: Divider(color: dividerColor)),
               ],
             ),
             const SizedBox(height: 14),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Text(
-                  '已有账户?',
+                Text(
+                  isEn ? 'Already have an account?' : '已有账户?',
                   style: TextStyle(
                     fontSize: 13,
-                    color: V2ETTokens.textSecondary,
+                    color: textSecondary,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
                 TextButton(
                   onPressed: widget.onLogin,
-                  child: const Text(
-                    '立即登录',
-                    style: TextStyle(
+                  child: Text(
+                    isEn ? 'Login Now' : '立即登录',
+                    style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w900,
                       color: V2ETTokens.primary,
@@ -323,5 +307,91 @@ class _V2ETRegisterPageState extends State<V2ETRegisterPage> {
     final user = _userController.text.trim();
     if (user.isEmpty) return null;
     return '$user@$selectedSuffix';
+  }
+
+  Rect? _anchorRect() {
+    final currentContext = _supportButtonKey.currentContext;
+    if (currentContext == null) return null;
+    final box = currentContext.findRenderObject();
+    if (box is! RenderBox) return null;
+    final offset = box.localToGlobal(Offset.zero);
+    return offset & box.size;
+  }
+}
+
+class _EmailSuffixMenu extends StatelessWidget {
+  const _EmailSuffixMenu({
+    required this.selected,
+    required this.items,
+    required this.onSelected,
+    required this.isDark,
+  });
+
+  final String selected;
+  final List<String> items;
+  final ValueChanged<String> onSelected;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<String>(
+      initialValue: selected,
+      color: isDark ? const Color(0xFF1F2B3C) : Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      onSelected: onSelected,
+      itemBuilder: (context) {
+        return items
+            .map(
+              (e) => PopupMenuItem<String>(
+                value: e,
+                child: Text(
+                  e,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? V2ETTokens.darkTextPrimary : V2ETTokens.textPrimary,
+                  ),
+                ),
+              ),
+            )
+            .toList();
+      },
+      child: Container(
+                  height: 40,
+                  width: 138,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: isDark ? V2ETTokens.darkInput : V2ETTokens.input,
+                    borderRadius: BorderRadius.circular(V2ETTokens.radiusM),
+                    border: Border.all(
+                      color: isDark ? V2ETTokens.darkBorder : V2ETTokens.border,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Text(
+                        '@',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          color: isDark ? V2ETTokens.darkTextSecondary : V2ETTokens.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          selected,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            color: isDark ? V2ETTokens.darkTextPrimary : V2ETTokens.textPrimary,
+                          ),
+                        ),
+                      ),
+                      Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        color: isDark ? V2ETTokens.darkTextSecondary : V2ETTokens.textSecondary,
+                      ),
+                    ],
+                  ),
+                ),
+    );
   }
 }

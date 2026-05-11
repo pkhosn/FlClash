@@ -8,13 +8,16 @@ class ProviderSidebar extends StatelessWidget {
     required this.current,
     required this.onChanged,
     required this.onSupport,
+    this.onSupportWithRect,
     required this.onLogout,
   });
 
   final ProviderClientPage current;
   final ValueChanged<ProviderClientPage> onChanged;
   final VoidCallback onSupport;
+  final ValueChanged<Rect>? onSupportWithRect;
   final VoidCallback onLogout;
+  static final GlobalKey _supportIconKey = GlobalKey();
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +37,19 @@ class ProviderSidebar extends StatelessWidget {
           ),
           const Spacer(),
           _SmallIcon(icon: Icons.card_giftcard_outlined, onTap: () {}),
-          _SmallIcon(icon: Icons.headset_mic_outlined, onTap: onSupport),
+          _SmallIcon(
+            icon: Icons.headset_mic_outlined,
+            iconKey: _supportIconKey,
+            onTap: () {
+              final box = _supportIconKey.currentContext?.findRenderObject();
+              if (box is RenderBox && onSupportWithRect != null) {
+                final offset = box.localToGlobal(Offset.zero);
+                onSupportWithRect!(offset & box.size);
+                return;
+              }
+              onSupport();
+            },
+          ),
           _SmallIcon(icon: Icons.wb_sunny_outlined, onTap: () {}),
           const SizedBox(height: 16),
           Container(width: 78, height: 1, color: V2ETTokens.border),
@@ -124,10 +139,12 @@ class _SmallIcon extends StatelessWidget {
     required this.icon,
     required this.onTap,
     this.selected = false,
+    this.iconKey,
   });
   final IconData icon;
   final VoidCallback onTap;
   final bool selected;
+  final GlobalKey? iconKey;
 
   @override
   Widget build(BuildContext context) {
@@ -137,6 +154,7 @@ class _SmallIcon extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Container(
+          key: iconKey,
           width: 44,
           height: 38,
           decoration: BoxDecoration(

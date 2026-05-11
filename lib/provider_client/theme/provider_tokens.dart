@@ -28,6 +28,16 @@ class V2ETTokens {
   static const Color darkButton = Color(0xFF1F2937);
   static const Color sidebarIcon = Color(0xFF767B82);
 
+  static const Color darkBackground = Color(0xFF0F1724);
+  static const Color darkAuthBackground = Color(0xFF0F1724);
+  static const Color darkCard = Color(0xFF1A2433);
+  static const Color darkCardSoft = Color(0xFF222F41);
+  static const Color darkInput = Color(0xFF273548);
+  static const Color darkBorder = Color(0xFF334155);
+  static const Color darkTextPrimary = Color(0xFFE6EDF7);
+  static const Color darkTextSecondary = Color(0xFFB7C4D6);
+  static const Color darkTextMuted = Color(0xFF8EA0B8);
+
   // Font policy:
   // 1. Preview/dev can rely on system CJK fonts when available.
   // 2. For release, bundle a CJK font yourself and declare it as V2ETSans

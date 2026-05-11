@@ -6,6 +6,7 @@ import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/config.dart';
 import 'package:fl_clash/v2et_bridge/v2et_bridge_provider.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'config/remote_config_provider.dart';
 import 'config/app_config_model.dart';
 import 'config/api_health_service.dart';
@@ -33,12 +34,29 @@ class V2ETPreviewApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final appConfig = ref.watch(appConfigProvider);
+    final themeMode = ref.watch(themeSettingProvider).themeMode;
+    final localeCode = ref.watch(appSettingProvider).locale;
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: appConfig.brandName,
       theme: V2ETTheme.light(),
+      darkTheme: V2ETTheme.dark(),
+      themeMode: themeMode,
+      locale: _resolveLocale(localeCode),
+      supportedLocales: const [Locale('zh', 'CN'), Locale('en', 'US')],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       home: const V2ETAuthGate(),
     );
+  }
+
+  Locale _resolveLocale(String? code) {
+    final lower = (code ?? '').toLowerCase();
+    if (lower.startsWith('en')) return const Locale('en', 'US');
+    return const Locale('zh', 'CN');
   }
 }
 
@@ -123,6 +141,7 @@ class _V2ETAuthGateState extends ConsumerState<V2ETAuthGate> {
         onLogin: () => setState(() => page = 'login'),
         brandName: appConfig.brandName,
         logoUrl: appConfig.logoUrl,
+        crispWebsiteId: appConfig.crispWebsiteId,
         authBackgroundUrl: appConfig.authBackgroundUrl,
         emailSuffixes: _emailSuffixes,
         languageCode: _languageCode,
@@ -352,10 +371,27 @@ class _V2ETAuthGateState extends ConsumerState<V2ETAuthGate> {
   }
 
   void _cycleLanguage() {
-    if (_languageCodes.isEmpty) return;
-    final index = _languageCodes.indexOf(_languageCode);
-    final next = (index + 1) % _languageCodes.length;
-    final nextCode = _languageCodes[next];
+    final all = _languageCodes.isEmpty
+        ? const ['zh-CN', 'en-US']
+        : _languageCodes;
+    final normalized = <String>[];
+    for (final code in all) {
+      final lower = code.toLowerCase();
+      if (lower.startsWith('zh') && !normalized.any((e) => e.toLowerCase().startsWith('zh'))) {
+        normalized.add(code);
+      }
+      if (lower.startsWith('en') && !normalized.any((e) => e.toLowerCase().startsWith('en'))) {
+        normalized.add(code);
+      }
+    }
+    if (normalized.isEmpty) {
+      normalized.addAll(const ['zh-CN', 'en-US']);
+    } else if (normalized.length == 1) {
+      normalized.add(normalized.first.toLowerCase().startsWith('zh') ? 'en-US' : 'zh-CN');
+    }
+    final index = normalized.indexOf(_languageCode);
+    final next = (index + 1) % normalized.length;
+    final nextCode = normalized[next];
     setState(() => _languageCode = nextCode);
     ref.read(appSettingProvider.notifier).update(
       (state) => state.copyWith(locale: nextCode),
@@ -506,6 +542,11 @@ class _ProviderClientAppShellState
           onSupport: () => showV2ETCustomerServiceDialog(
             context,
             crispWebsiteId: appConfig.crispWebsiteId,
+          ),
+          onSupportWithRect: (rect) => showV2ETCustomerServiceDialog(
+            context,
+            crispWebsiteId: appConfig.crispWebsiteId,
+            anchorRect: rect,
           ),
           onLogout: widget.onLogout,
         ),
