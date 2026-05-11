@@ -6,6 +6,7 @@ class AppConfig {
   final String logoUrl;
   final String authBackgroundUrl;
   final String crispWebsiteId;
+  final String supportUrl;
   final bool showNoticePopup;
   final String officialWebsite;
 
@@ -17,6 +18,7 @@ class AppConfig {
     required this.logoUrl,
     required this.authBackgroundUrl,
     required this.crispWebsiteId,
+    required this.supportUrl,
     required this.showNoticePopup,
     required this.officialWebsite,
   });
@@ -33,6 +35,7 @@ class AppConfig {
       logoUrl: (json['assets']?['logo'] ?? '').toString(),
       authBackgroundUrl: (json['assets']?['auth_background'] ?? '').toString(),
       crispWebsiteId: (json['crisp']?['website_id'] ?? '').toString(),
+      supportUrl: (json['support']?['url'] ?? '').toString(),
       showNoticePopup: json['features']?['show_notice_popup'] != false,
       officialWebsite: (json['links']?['official_site'] ??
               json['app']?['officialWebsite'] ??
@@ -49,6 +52,7 @@ class AppConfig {
     logoUrl: '',
     authBackgroundUrl: '',
     crispWebsiteId: '',
+    supportUrl: '',
     showNoticePopup: true,
     officialWebsite: '',
   );

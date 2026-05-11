@@ -99,6 +99,7 @@ class _V2ETRegisterPageState extends State<V2ETRegisterPage> {
       onSupport: () => showV2ETCustomerServiceDialog(
         context,
         crispWebsiteId: widget.crispWebsiteId,
+        supportUrl: '',
         anchorRect: _anchorRect(),
       ),
       serviceOk: widget.serviceOk,

@@ -84,6 +84,7 @@ class _V2ETLoginPageState extends State<V2ETLoginPage> {
       onSupport: () => showV2ETCustomerServiceDialog(
         context,
         crispWebsiteId: widget.crispWebsiteId,
+        supportUrl: '',
         anchorRect: _anchorRect(),
       ),
       serviceOk: widget.serviceOk,

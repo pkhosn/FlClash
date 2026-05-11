@@ -6,6 +6,7 @@ import '../../theme/provider_tokens.dart';
 Future<void> showV2ETCustomerServiceDialog(
   BuildContext context, {
   String crispWebsiteId = '',
+  String supportUrl = '',
   Rect? anchorRect,
 }) {
   final media = MediaQuery.of(context).size;
@@ -46,7 +47,10 @@ Future<void> showV2ETCustomerServiceDialog(
             top: top,
             width: popupWidth,
             height: popupHeight,
-            child: V2ETCustomerServiceDialog(crispWebsiteId: crispWebsiteId),
+            child: V2ETCustomerServiceDialog(
+              crispWebsiteId: crispWebsiteId,
+              supportUrl: supportUrl,
+            ),
           ),
         ],
       ),
@@ -59,9 +63,14 @@ Future<void> showV2ETCustomerServiceDialog(
 }
 
 class V2ETCustomerServiceDialog extends StatefulWidget {
-  const V2ETCustomerServiceDialog({super.key, this.crispWebsiteId = ''});
+  const V2ETCustomerServiceDialog({
+    super.key,
+    this.crispWebsiteId = '',
+    this.supportUrl = '',
+  });
 
   final String crispWebsiteId;
+  final String supportUrl;
 
   @override
   State<V2ETCustomerServiceDialog> createState() =>
@@ -70,17 +79,44 @@ class V2ETCustomerServiceDialog extends StatefulWidget {
 
 class _V2ETCustomerServiceDialogState extends State<V2ETCustomerServiceDialog> {
   WebViewController? _controller;
+  List<Uri> _candidateUris = const [];
+  int _candidateIndex = 0;
   bool _loading = true;
   String? _errorText;
 
   @override
   void initState() {
     super.initState();
+    _candidateUris = _buildCandidates();
+    if (_candidateUris.isEmpty) return;
+    _createControllerAndLoad();
+  }
+
+  List<Uri> _buildCandidates() {
+    final out = <Uri>[];
+    final support = widget.supportUrl.trim();
     final crispId = widget.crispWebsiteId.trim();
-    if (crispId.isEmpty) return;
+    if (support.isNotEmpty) {
+      final u = Uri.tryParse(support);
+      if (u != null && u.hasScheme) out.add(u);
+    }
+    if (crispId.isNotEmpty) {
+      out.add(Uri.parse('https://go.crisp.chat/chat/embed/?website_id=$crispId'));
+      out.add(Uri.parse('https://go.crisp.chat/chatbox/$crispId/'));
+    }
+    return out;
+  }
+
+  void _createControllerAndLoad() {
+    if (_candidateUris.isEmpty || _candidateIndex >= _candidateUris.length) {
+      setState(() {
+        _loading = false;
+        _controller = null;
+      });
+      return;
+    }
+    final target = _candidateUris[_candidateIndex];
     try {
-      // WebView on some desktop environments may fail at runtime.
-      // Keep dialog stable by falling back to external open when needed.
       _controller = WebViewController()
         ..setJavaScriptMode(JavaScriptMode.unrestricted)
         ..setNavigationDelegate(
@@ -89,29 +125,39 @@ class _V2ETCustomerServiceDialogState extends State<V2ETCustomerServiceDialog> {
               if (mounted) setState(() => _loading = false);
             },
             onWebResourceError: (error) {
-              if (mounted) {
-                setState(() {
-                  _loading = false;
-                  _errorText = error.description;
-                });
-              }
+              _tryNextCandidateOrFail(error.description);
             },
           ),
         )
-        ..loadRequest(
-          Uri.parse('https://go.crisp.chat/chat/embed/?website_id=$crispId'),
-        );
+        ..loadRequest(target);
     } catch (e) {
-      _errorText = '$e';
-      _controller = null;
-      _loading = false;
+      _tryNextCandidateOrFail('$e');
     }
+  }
+
+  void _tryNextCandidateOrFail(String message) {
+    if (!mounted) return;
+    if (_candidateIndex + 1 < _candidateUris.length) {
+      setState(() {
+        _candidateIndex++;
+        _loading = true;
+        _errorText = null;
+      });
+      _createControllerAndLoad();
+      return;
+    }
+    setState(() {
+      _loading = false;
+      _errorText = message;
+      _controller = null;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final crispId = widget.crispWebsiteId.trim();
-    final hasCrisp = crispId.isNotEmpty && _controller != null;
+    final support = widget.supportUrl.trim();
+    final hasCrisp = _controller != null;
     final showInlineError = hasCrisp && (_errorText ?? '').isNotEmpty;
     return Container(
         decoration: BoxDecoration(
@@ -153,6 +199,12 @@ class _V2ETCustomerServiceDialogState extends State<V2ETCustomerServiceDialog> {
                         }
                         return;
                       }
+                      setState(() {
+                        _candidateIndex = 0;
+                        _loading = true;
+                        _errorText = null;
+                      });
+                      _createControllerAndLoad();
                     },
                   ),
                   const SizedBox(width: 8),
@@ -204,9 +256,11 @@ class _V2ETCustomerServiceDialogState extends State<V2ETCustomerServiceDialog> {
                                     const SizedBox(height: 14),
                                     OutlinedButton(
                                       onPressed: () async {
-                                        final uri = Uri.parse(
-                                          'https://go.crisp.chat/chat/embed/?website_id=$crispId',
-                                        );
+                                        final uri = _candidateUris.isNotEmpty
+                                            ? _candidateUris.first
+                                            : Uri.parse(
+                                                'https://go.crisp.chat/chat/embed/?website_id=$crispId',
+                                              );
                                         await launchUrl(
                                           uri,
                                           mode: LaunchMode.externalApplication,
@@ -225,8 +279,8 @@ class _V2ETCustomerServiceDialogState extends State<V2ETCustomerServiceDialog> {
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
                         child: Text(
-                          crispId.isEmpty
-                              ? '未配置 Crisp website_id'
+                          crispId.isEmpty && support.isEmpty
+                              ? '未配置客服地址'
                               : (_errorText ?? '客服页面加载失败，请点击刷新重试'),
                           textAlign: TextAlign.center,
                           style: const TextStyle(

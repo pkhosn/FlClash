@@ -59,6 +59,7 @@ class _V2ETResetPasswordPageState extends State<V2ETResetPasswordPage> {
       onSupport: () => showV2ETCustomerServiceDialog(
         context,
         crispWebsiteId: widget.crispWebsiteId,
+        supportUrl: '',
         anchorRect: _anchorRect(),
       ),
       serviceOk: widget.serviceOk,

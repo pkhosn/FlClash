@@ -593,6 +593,7 @@ class _ProviderClientAppShellState
             onPressed: () => showV2ETCustomerServiceDialog(
               context,
               crispWebsiteId: appConfig.crispWebsiteId,
+              supportUrl: appConfig.supportUrl,
               anchorRect: _supportAnchorRect(),
             ),
             child: const Icon(
