@@ -1,5 +1,7 @@
+import 'package:fl_clash/controller.dart';
+import 'package:fl_clash/providers/state.dart';
 import 'package:flutter/material.dart';
-import '../../mock/mock_provider_data.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../theme/provider_tokens.dart';
 import '../../widgets/app_button.dart';
 
@@ -15,11 +17,30 @@ Future<void> showV2ETProxyGroupDialog(BuildContext context) {
   );
 }
 
-class V2ETProxyGroupDialog extends StatelessWidget {
+class V2ETProxyGroupDialog extends ConsumerStatefulWidget {
   const V2ETProxyGroupDialog({super.key});
 
   @override
+  ConsumerState<V2ETProxyGroupDialog> createState() =>
+      _V2ETProxyGroupDialogState();
+}
+
+class _V2ETProxyGroupDialogState extends ConsumerState<V2ETProxyGroupDialog> {
+  String? selectedGroup;
+
+  @override
   Widget build(BuildContext context) {
+    final groups = ref.watch(currentGroupsStateProvider).value;
+    if (groups.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    selectedGroup ??= groups.first.name;
+    final current = groups.firstWhere(
+      (g) => g.name == selectedGroup,
+      orElse: () => groups.first,
+    );
+    final selectedProxyName = ref.watch(getSelectedProxyNameProvider(current.name));
+
     return Center(
       child: Container(
         width: 700,
@@ -61,9 +82,18 @@ class V2ETProxyGroupDialog extends StatelessWidget {
                   Expanded(
                     child: ListView.separated(
                       padding: const EdgeInsets.fromLTRB(12, 8, 10, 12),
-                      itemCount: mockGroups.length,
+                      itemCount: groups.length,
                       separatorBuilder: (_, _) => const SizedBox(height: 7),
-                      itemBuilder: (_, i) => _GroupTile(group: mockGroups[i]),
+                      itemBuilder: (_, i) {
+                        final group = groups[i];
+                        final active = group.name == current.name;
+                        return _GroupTile(
+                          title: group.name,
+                          subtitle: group.now ?? '',
+                          active: active,
+                          onTap: () => setState(() => selectedGroup = group.name),
+                        );
+                      },
                     ),
                   ),
                 ],
@@ -84,7 +114,10 @@ class V2ETProxyGroupDialog extends StatelessWidget {
                           icon: Icons.speed_rounded,
                           tone: V2ETButtonTone.soft,
                           height: 30,
-                          onPressed: () {},
+                          onPressed: () async {
+                            await appController.updateGroups();
+                            if (mounted) setState(() {});
+                          },
                         ),
                       ],
                     ),
@@ -92,9 +125,25 @@ class V2ETProxyGroupDialog extends StatelessWidget {
                   Expanded(
                     child: ListView.separated(
                       padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
-                      itemCount: mockNodes.length,
+                      itemCount: current.all.length,
                       separatorBuilder: (_, _) => const SizedBox(height: 6),
-                      itemBuilder: (_, i) => _NodeTile(node: mockNodes[i]),
+                      itemBuilder: (_, i) {
+                        final proxy = current.all[i];
+                        final active = proxy.name == selectedProxyName;
+                        return _NodeTile(
+                          name: proxy.name,
+                          delay: current.testUrl?.isNotEmpty == true ? '可测速' : '--',
+                          active: active,
+                          onTap: () async {
+                            await appController.changeProxy(
+                              groupName: current.name,
+                              proxyName: proxy.name,
+                            );
+                            await appController.updateGroups();
+                            if (mounted) setState(() {});
+                          },
+                        );
+                      },
                     ),
                   ),
                 ],
@@ -108,137 +157,120 @@ class V2ETProxyGroupDialog extends StatelessWidget {
 }
 
 class _GroupTile extends StatelessWidget {
-  const _GroupTile({required this.group});
-  final V2ETProxyGroupMock group;
+  const _GroupTile({
+    required this.title,
+    required this.subtitle,
+    required this.active,
+    required this.onTap,
+  });
+  final String title;
+  final String subtitle;
+  final bool active;
+  final VoidCallback onTap;
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 58,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        color: group.active ? const Color(0xFFDDF2EF) : const Color(0xFFF7F8FA),
-        borderRadius: BorderRadius.circular(9),
-        border: group.active
-            ? Border.all(color: const Color(0xFF85D6D0))
-            : null,
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: group.active
-                  ? const Color(0xFFE4E5C8)
-                  : const Color(0xFFE4F2F0),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Center(
-              child: Text(group.icon, style: const TextStyle(fontSize: 16)),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  group.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w900,
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(9),
+      child: Container(
+        height: 58,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: active ? const Color(0xFFDDF2EF) : const Color(0xFFF7F8FA),
+          borderRadius: BorderRadius.circular(9),
+          border: active ? Border.all(color: const Color(0xFF85D6D0)) : null,
+        ),
+        child: Row(
+          children: [
+            const SizedBox(width: 2),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
-                ),
-                Text(
-                  group.subtitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: V2ETTokens.small,
-                ),
-              ],
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: V2ETTokens.small,
+                  ),
+                ],
+              ),
             ),
-          ),
-          Icon(
-            Icons.chevron_right_rounded,
-            color: group.active ? V2ETTokens.teal : V2ETTokens.textMuted,
-          ),
-        ],
+            Icon(
+              Icons.chevron_right_rounded,
+              color: active ? V2ETTokens.teal : V2ETTokens.textMuted,
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
 class _NodeTile extends StatelessWidget {
-  const _NodeTile({required this.node});
-  final V2ETNodeMock node;
+  const _NodeTile({
+    required this.name,
+    required this.delay,
+    required this.active,
+    required this.onTap,
+  });
+
+  final String name;
+  final String delay;
+  final bool active;
+  final VoidCallback onTap;
+
   @override
   Widget build(BuildContext context) {
-    final delayColor = node.delay.startsWith('1') || node.delay.startsWith('8')
-        ? V2ETTokens.success
-        : V2ETTokens.warning;
-    return Container(
-      height: 56,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        color: node.active ? const Color(0xFFDDF2EF) : Colors.white,
-        borderRadius: BorderRadius.circular(9),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 34,
-            height: 28,
-            decoration: BoxDecoration(
-              color: V2ETTokens.cardSoft,
-              borderRadius: BorderRadius.circular(7),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(9),
+      child: Container(
+        height: 56,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: active ? const Color(0xFFDDF2EF) : Colors.white,
+          borderRadius: BorderRadius.circular(9),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900),
+              ),
             ),
-            child: Center(child: Text(node.flag)),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  node.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                if (node.subtitle.isNotEmpty)
-                  Text(
-                    node.subtitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: V2ETTokens.small,
-                  ),
-              ],
+            Text(
+              delay,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w900,
+                color: V2ETTokens.success,
+              ),
             ),
-          ),
-          Text(
-            node.delay,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w900,
-              color: delayColor,
-            ),
-          ),
-          if (node.active) ...[
-            const SizedBox(width: 8),
-            const Icon(
-              Icons.check_circle_rounded,
-              size: 18,
-              color: V2ETTokens.teal,
-            ),
+            if (active) ...[
+              const SizedBox(width: 8),
+              const Icon(
+                Icons.check_circle_rounded,
+                size: 18,
+                color: V2ETTokens.teal,
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }

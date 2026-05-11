@@ -1,16 +1,40 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fl_clash/controller.dart';
+import 'package:fl_clash/providers/state.dart';
+import 'package:fl_clash/v2et_bridge/v2et_bridge.dart';
+import 'package:fl_clash/v2et_bridge/v2et_bridge_provider.dart';
 import '../../theme/provider_tokens.dart';
 import '../../widgets/app_card.dart';
+import '../../data/v2et_runtime_providers.dart';
 import 'notice_dialog.dart';
 import 'proxy_group_dialog.dart';
 
-class V2ETProviderHomePage extends StatelessWidget {
+class V2ETProviderHomePage extends ConsumerWidget {
   const V2ETProviderHomePage({super.key, this.showNoticePopup = true});
 
   final bool showNoticePopup;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final subAsync = ref.watch(v2etSubscriptionProvider);
+    final modeAsync = ref.watch(v2etProxyModeProvider);
+    final isStart = ref.watch(isStartProvider);
+    final sub = subAsync.when(
+      data: (d) => d,
+      loading: () => null,
+      error: (_, _) => null,
+    );
+    final mode = modeAsync.when(
+      data: (d) => d,
+      loading: () => V2etProxyMode.smart,
+      error: (_, _) => V2etProxyMode.smart,
+    );
+    final total = (sub?.transferEnableBytes ?? 0).toDouble();
+    final used = (sub?.usedBytes ?? 0).toDouble();
+    final remain = (total - used).clamp(0, double.infinity).toDouble();
+    final ratio = total > 0 ? (used / total).clamp(0, 1).toDouble() : 0.0;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(24, 34, 24, 26),
       child: Center(
@@ -21,11 +45,26 @@ class V2ETProviderHomePage extends StatelessWidget {
               _UsageCard(
                 onNotice: () => showV2ETNoticeDialog(context),
                 showNoticePopup: showNoticePopup,
+                remainText: _fmtBytes(remain.toInt()),
+                usedText: _fmtBytes(used.toInt()),
+                totalText: _fmtBytes(total.toInt()),
+                progress: ratio,
               ),
               const SizedBox(height: 58),
-              const _PowerButton(),
+              _PowerButton(
+                started: isStart,
+                onTap: () async {
+                  await appController.updateStatus(!isStart);
+                },
+              ),
               const SizedBox(height: 30),
-              const _ModeCard(),
+              _ModeCard(
+                mode: mode,
+                onMode: (m) async {
+                  await ref.read(v2etBridgeProvider).setProxyMode(m);
+                  ref.invalidate(v2etProxyModeProvider);
+                },
+              ),
               const SizedBox(height: 18),
               _CurrentNodeCard(onOpen: () => showV2ETProxyGroupDialog(context)),
             ],
@@ -34,12 +73,35 @@ class V2ETProviderHomePage extends StatelessWidget {
       ),
     );
   }
+
+  String _fmtBytes(int bytes) {
+    if (bytes <= 0) return '0 B';
+    const unit = ['B', 'KB', 'MB', 'GB', 'TB'];
+    double value = bytes.toDouble();
+    int idx = 0;
+    while (value >= 1024 && idx < unit.length - 1) {
+      value /= 1024;
+      idx++;
+    }
+    return '${value.toStringAsFixed(idx == 0 ? 0 : 1)} ${unit[idx]}';
+  }
 }
 
 class _UsageCard extends StatelessWidget {
-  const _UsageCard({required this.onNotice, required this.showNoticePopup});
+  const _UsageCard({
+    required this.onNotice,
+    required this.showNoticePopup,
+    required this.remainText,
+    required this.usedText,
+    required this.totalText,
+    required this.progress,
+  });
   final VoidCallback onNotice;
   final bool showNoticePopup;
+  final String remainText;
+  final String usedText;
+  final String totalText;
+  final double progress;
 
   @override
   Widget build(BuildContext context) {
@@ -53,7 +115,7 @@ class _UsageCard extends StatelessWidget {
               Expanded(
                 child: _UsageStat(
                   label: '剩余流量',
-                  value: '87.4 GB',
+                  value: remainText,
                   align: CrossAxisAlignment.start,
                 ),
               ),
@@ -117,7 +179,7 @@ class _UsageCard extends StatelessWidget {
                 ),
               ),
               FractionallySizedBox(
-                widthFactor: 0.12,
+                widthFactor: progress,
                 child: Container(
                   height: 14,
                   decoration: BoxDecoration(
@@ -126,10 +188,10 @@ class _UsageCard extends StatelessWidget {
                   ),
                 ),
               ),
-              const Positioned.fill(
+              Positioned.fill(
                 child: Center(
                   child: Text(
-                    '12%',
+                    '${(progress * 100).toStringAsFixed(0)}%',
                     style: TextStyle(
                       fontSize: 9,
                       fontWeight: FontWeight.w800,
@@ -142,12 +204,12 @@ class _UsageCard extends StatelessWidget {
           ),
           const SizedBox(height: 9),
           Row(
-            children: const [
-              Text('已用 12.6 GB', style: V2ETTokens.mini),
-              Spacer(),
-              Text('共 100 GB', style: V2ETTokens.mini),
-              Spacer(),
-              Text('预计重置日期 2026-06-01', style: V2ETTokens.mini),
+            children: [
+              Text('已用 $usedText', style: V2ETTokens.mini),
+              const Spacer(),
+              Text('共 $totalText', style: V2ETTokens.mini),
+              const Spacer(),
+              const Text('预计重置日期 2026-06-01', style: V2ETTokens.mini),
             ],
           ),
         ],
@@ -206,38 +268,44 @@ class _ActionIcon extends StatelessWidget {
 }
 
 class _PowerButton extends StatelessWidget {
-  const _PowerButton();
+  const _PowerButton({required this.started, required this.onTap});
+  final bool started;
+  final VoidCallback onTap;
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Container(
-          width: 176,
-          height: 176,
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFFF2F5F8), Color(0xFFE7ECF1)],
+        InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(88),
+          child: Container(
+            width: 176,
+            height: 176,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFFF2F5F8), Color(0xFFE7ECF1)],
+              ),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.14),
+                  blurRadius: 18,
+                  offset: const Offset(0, 8),
+                ),
+                const BoxShadow(
+                  color: Colors.white,
+                  blurRadius: 20,
+                  offset: Offset(-8, -8),
+                ),
+              ],
             ),
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.14),
-                blurRadius: 18,
-                offset: const Offset(0, 8),
-              ),
-              const BoxShadow(
-                color: Colors.white,
-                blurRadius: 20,
-                offset: Offset(-8, -8),
-              ),
-            ],
-          ),
-          child: Icon(
-            Icons.power_settings_new_rounded,
-            size: 72,
-            color: Colors.grey.shade600,
+            child: Icon(
+              Icons.power_settings_new_rounded,
+              size: 72,
+              color: started ? V2ETTokens.success : Colors.grey.shade600,
+            ),
           ),
         ),
         const SizedBox(height: 22),
@@ -251,18 +319,20 @@ class _PowerButton extends StatelessWidget {
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
-            children: const [
+            children: [
               Icon(
                 Icons.circle_outlined,
                 size: 16,
-                color: V2ETTokens.textSecondary,
+                color: started ? V2ETTokens.success : V2ETTokens.textSecondary,
               ),
-              SizedBox(width: 6),
+              const SizedBox(width: 6),
               Text(
-                '未连接',
+                started ? '已连接' : '未连接',
                 style: TextStyle(
                   fontWeight: FontWeight.w700,
-                  color: V2ETTokens.textSecondary,
+                  color: started
+                      ? V2ETTokens.success
+                      : V2ETTokens.textSecondary,
                 ),
               ),
             ],
@@ -274,7 +344,9 @@ class _PowerButton extends StatelessWidget {
 }
 
 class _ModeCard extends StatelessWidget {
-  const _ModeCard();
+  const _ModeCard({required this.mode, required this.onMode});
+  final V2etProxyMode mode;
+  final ValueChanged<V2etProxyMode> onMode;
   @override
   Widget build(BuildContext context) {
     return V2ETCard(
@@ -295,12 +367,30 @@ class _ModeCard extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           Row(
-            children: const [
-              Expanded(child: _ModeButton(label: '规则', selected: true)),
-              SizedBox(width: 8),
-              Expanded(child: _ModeButton(label: '全局')),
-              SizedBox(width: 8),
-              Expanded(child: _ModeButton(label: 'TUN')),
+            children: [
+              Expanded(
+                child: _ModeButton(
+                  label: '规则',
+                  selected: mode == V2etProxyMode.smart,
+                  onTap: () => onMode(V2etProxyMode.smart),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _ModeButton(
+                  label: '全局',
+                  selected: mode == V2etProxyMode.global,
+                  onTap: () => onMode(V2etProxyMode.global),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _ModeButton(
+                  label: 'TUN',
+                  selected: mode == V2etProxyMode.tun,
+                  onTap: () => onMode(V2etProxyMode.tun),
+                ),
+              ),
             ],
           ),
         ],
@@ -310,27 +400,36 @@ class _ModeCard extends StatelessWidget {
 }
 
 class _ModeButton extends StatelessWidget {
-  const _ModeButton({required this.label, this.selected = false});
+  const _ModeButton({
+    required this.label,
+    this.selected = false,
+    required this.onTap,
+  });
   final String label;
   final bool selected;
+  final VoidCallback onTap;
   @override
-  Widget build(BuildContext context) => Container(
-    height: 46,
-    decoration: BoxDecoration(
-      color: selected ? const Color(0xFFD9EFEA) : Colors.white,
-      borderRadius: BorderRadius.circular(12),
-      border: Border.all(
-        color: selected ? const Color(0xFF8FD0C5) : V2ETTokens.border,
+  Widget build(BuildContext context) => InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(12),
+    child: Container(
+      height: 46,
+      decoration: BoxDecoration(
+        color: selected ? const Color(0xFFD9EFEA) : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: selected ? const Color(0xFF8FD0C5) : V2ETTokens.border,
+        ),
+        boxShadow: selected ? const [V2ETTokens.tinyShadow] : null,
       ),
-      boxShadow: selected ? const [V2ETTokens.tinyShadow] : null,
-    ),
-    child: Center(
-      child: Text(
-        selected ? '✓ $label' : label,
-        style: TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w900,
-          color: selected ? const Color(0xFF0B8B7D) : V2ETTokens.textPrimary,
+      child: Center(
+        child: Text(
+          selected ? '✓ $label' : label,
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w900,
+            color: selected ? const Color(0xFF0B8B7D) : V2ETTokens.textPrimary,
+          ),
         ),
       ),
     ),
