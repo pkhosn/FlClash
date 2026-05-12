@@ -8,6 +8,7 @@ import 'package:fl_clash/providers/config.dart';
 import 'package:fl_clash/v2et_bridge/v2et_bridge_provider.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'config/remote_config_provider.dart';
 import 'config/app_config_model.dart';
 import 'config/api_health_service.dart';
@@ -293,6 +294,8 @@ class _V2ETAuthGateState extends ConsumerState<V2ETAuthGate> {
         url: subscription.subscriptionUrl.toString(),
       ).update();
       appController.putProfile(profile);
+      ref.read(currentProfileIdProvider.notifier).value = profile.id;
+      await appController.applyProfile(force: true, silence: true);
       // Do not auto-connect on login. User must click connect manually.
       await _saveRememberedLogin(
         remember: remember,
@@ -641,12 +644,52 @@ class _ProviderClientAppShellState
             key: _supportButtonKey,
             mini: true,
             backgroundColor: V2ETTokens.primary,
-            onPressed: () => showV2ETCustomerServiceDialog(
-              context,
-              crispWebsiteId: appConfig.crispWebsiteId,
-              supportUrl: appConfig.supportUrl,
-              anchorRect: _supportAnchorRect(),
-            ),
+            onPressed: () async {
+              try {
+                await showV2ETCustomerServiceDialog(
+                  context,
+                  crispWebsiteId: appConfig.crispWebsiteId,
+                  supportUrl: appConfig.supportUrl,
+                  anchorRect: _supportAnchorRect(),
+                );
+              } catch (e) {
+                if (!mounted) return;
+                await showDialog<void>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('客服打开失败'),
+                    content: Text('错误：$e'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(ctx).pop(),
+                        child: const Text('关闭'),
+                      ),
+                      TextButton(
+                        onPressed: () async {
+                          final support = appConfig.supportUrl.trim();
+                          final crisp = appConfig.crispWebsiteId.trim();
+                          Uri? uri;
+                          if (support.isNotEmpty) {
+                            final u = Uri.tryParse(support);
+                            if (u != null && isSupportedSupportUri(u)) uri = u;
+                          }
+                          uri ??= Uri.tryParse(
+                            'https://go.crisp.chat/chat/embed/?website_id=$crisp',
+                          );
+                          if (uri != null && isSupportedSupportUri(uri)) {
+                            await launchUrl(
+                              uri,
+                              mode: LaunchMode.externalApplication,
+                            );
+                          }
+                        },
+                        child: const Text('网页打开'),
+                      ),
+                    ],
+                  ),
+                );
+              }
+            },
             child: const Icon(
               Icons.support_agent_rounded,
               color: Colors.white,
