@@ -95,6 +95,7 @@ class _V2ETCustomerServiceDialogState extends State<V2ETCustomerServiceDialog> {
   bool _loading = true;
   String? _errorText;
   bool _webviewUnavailable = false;
+  bool _htmlMode = false;
 
   @override
   void initState() {
@@ -127,6 +128,32 @@ class _V2ETCustomerServiceDialogState extends State<V2ETCustomerServiceDialog> {
   }
 
   void _createControllerAndLoad() {
+    final crispId = widget.crispWebsiteId.trim();
+    if (crispId.isNotEmpty) {
+      try {
+        _controller = WebViewController()
+          ..setJavaScriptMode(JavaScriptMode.unrestricted)
+          ..setNavigationDelegate(
+            NavigationDelegate(
+              onPageFinished: (_) {
+                if (mounted) setState(() => _loading = false);
+              },
+              onWebResourceError: (error) {
+                _tryNextCandidateOrFail(error.description);
+              },
+            ),
+          )
+          ..loadHtmlString(_buildCrispHtml(crispId));
+        _webviewUnavailable = false;
+        _htmlMode = true;
+        return;
+      } catch (e) {
+        _htmlMode = false;
+        _webviewUnavailable = true;
+        _tryNextCandidateOrFail('$e');
+        return;
+      }
+    }
     if (_candidateUris.isEmpty || _candidateIndex >= _candidateUris.length) {
       setState(() {
         _loading = false;
@@ -164,6 +191,7 @@ class _V2ETCustomerServiceDialogState extends State<V2ETCustomerServiceDialog> {
         )
         ..loadRequest(target);
       _webviewUnavailable = false;
+      _htmlMode = false;
     } catch (e) {
       _webviewUnavailable = true;
       _tryNextCandidateOrFail('$e');
@@ -185,6 +213,7 @@ class _V2ETCustomerServiceDialogState extends State<V2ETCustomerServiceDialog> {
       _loading = false;
       _errorText = message;
       _controller = null;
+      _htmlMode = false;
     });
   }
 
@@ -245,7 +274,11 @@ class _V2ETCustomerServiceDialogState extends State<V2ETCustomerServiceDialog> {
                           _loading = true;
                           _errorText = null;
                         });
-                        c.reload();
+                        if (_htmlMode && widget.crispWebsiteId.trim().isNotEmpty) {
+                          c.loadHtmlString(_buildCrispHtml(widget.crispWebsiteId.trim()));
+                        } else {
+                          c.reload();
+                        }
                       }
                       return;
                     }
@@ -339,6 +372,34 @@ class _V2ETCustomerServiceDialogState extends State<V2ETCustomerServiceDialog> {
         ],
       ),
     );
+  }
+
+  String _buildCrispHtml(String websiteId) {
+    return '''
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <style>
+    html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#fff;}
+    #holder{width:100%;height:100%;}
+    iframe{border:0;width:100%;height:100%;}
+  </style>
+</head>
+<body>
+  <div id="holder">
+    <iframe src="https://go.crisp.chat/chat/embed/?website_id=$websiteId" allow="clipboard-read; clipboard-write"></iframe>
+  </div>
+  <script type="text/javascript">
+    window.\$crisp=[];window.CRISP_WEBSITE_ID="$websiteId";
+    (function(){var d=document,s=d.createElement("script");
+    s.src="https://client.crisp.chat/l.js";s.async=1;
+    d.getElementsByTagName("head")[0].appendChild(s);})();
+  </script>
+</body>
+</html>
+''';
   }
 }
 

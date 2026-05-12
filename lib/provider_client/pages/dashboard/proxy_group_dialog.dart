@@ -1,5 +1,4 @@
 import 'package:fl_clash/controller.dart';
-import 'package:fl_clash/providers/app.dart';
 import 'package:fl_clash/providers/state.dart';
 import 'package:fl_clash/views/proxies/common.dart';
 import 'package:flutter/material.dart';
@@ -55,9 +54,7 @@ class _V2ETProxyGroupDialogState extends ConsumerState<V2ETProxyGroupDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final currentGroups = ref.watch(currentGroupsStateProvider).value;
-    final rawGroups = ref.watch(groupsProvider);
-    final groups = currentGroups.isNotEmpty ? currentGroups : rawGroups;
+    final groups = ref.watch(currentGroupsStateProvider).value;
     if (groups.isEmpty) {
       return Center(
         child: Container(
