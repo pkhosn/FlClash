@@ -90,84 +90,39 @@ class V2ETCustomerServiceDialog extends StatefulWidget {
 
 class _V2ETCustomerServiceDialogState extends State<V2ETCustomerServiceDialog> {
   WebViewController? _controller;
-  List<Uri> _candidateUris = const [];
-  int _candidateIndex = 0;
+  Uri? _supportUri;
   bool _loading = true;
   String? _errorText;
-  bool _webviewUnavailable = false;
-  bool _htmlMode = false;
 
   @override
   void initState() {
     super.initState();
-    _candidateUris = _buildCandidates();
-    if (_candidateUris.isEmpty) {
+    _supportUri = _buildSupportUri();
+    if (_supportUri == null) {
       _loading = false;
       _errorText = '暂无客服信息';
       return;
     }
-    _createControllerAndLoad();
+    _createControllerAndLoad(_supportUri!);
   }
 
-  List<Uri> _buildCandidates() {
-    final out = <Uri>[];
+  Uri? _buildSupportUri() {
     final support = widget.supportUrl.trim();
     final crispId = widget.crispWebsiteId.trim();
     if (support.isNotEmpty) {
       final u = Uri.tryParse(support);
-      if (u != null && isSupportedSupportUri(u)) out.add(u);
+      if (u != null && isSupportedSupportUri(u)) return u;
     }
     if (crispId.isNotEmpty) {
-      final embed =
-          Uri.tryParse('https://go.crisp.chat/chat/embed/?website_id=$crispId');
-      final chatBox = Uri.tryParse('https://go.crisp.chat/chatbox/$crispId/');
-      if (embed != null && isSupportedSupportUri(embed)) out.add(embed);
-      if (chatBox != null && isSupportedSupportUri(chatBox)) out.add(chatBox);
+      final embed = Uri.tryParse(
+        'https://go.crisp.chat/chat/embed/?website_id=$crispId',
+      );
+      if (embed != null && isSupportedSupportUri(embed)) return embed;
     }
-    return out;
+    return null;
   }
 
-  void _createControllerAndLoad() {
-    final crispId = widget.crispWebsiteId.trim();
-    if (crispId.isNotEmpty) {
-      try {
-        _controller = WebViewController()
-          ..setJavaScriptMode(JavaScriptMode.unrestricted)
-          ..setNavigationDelegate(
-            NavigationDelegate(
-              onPageFinished: (_) {
-                if (mounted) setState(() => _loading = false);
-              },
-              onWebResourceError: (error) {
-                _tryNextCandidateOrFail(error.description);
-              },
-            ),
-          )
-          ..loadHtmlString(_buildCrispHtml(crispId));
-        _webviewUnavailable = false;
-        _htmlMode = true;
-        return;
-      } catch (e) {
-        _htmlMode = false;
-        _webviewUnavailable = true;
-        _tryNextCandidateOrFail('$e');
-        return;
-      }
-    }
-    if (_candidateUris.isEmpty || _candidateIndex >= _candidateUris.length) {
-      setState(() {
-        _loading = false;
-        _controller = null;
-        _webviewUnavailable = false;
-        _errorText = '暂无客服信息';
-      });
-      return;
-    }
-    final target = _candidateUris[_candidateIndex];
-    if (!isSupportedSupportUri(target)) {
-      _tryNextCandidateOrFail('客服地址无效');
-      return;
-    }
+  void _createControllerAndLoad(Uri target) {
     try {
       _controller = WebViewController()
         ..setJavaScriptMode(JavaScriptMode.unrestricted)
@@ -177,12 +132,20 @@ class _V2ETCustomerServiceDialogState extends State<V2ETCustomerServiceDialog> {
               if (mounted) setState(() => _loading = false);
             },
             onWebResourceError: (error) {
-              _tryNextCandidateOrFail(error.description);
+              if (!mounted) return;
+              setState(() {
+                _loading = false;
+                _errorText = '客服页面加载失败: ${error.description}';
+              });
             },
             onNavigationRequest: (request) {
               final uri = Uri.tryParse(request.url);
               if (!isSupportedSupportUri(uri)) {
-                _tryNextCandidateOrFail('客服地址无效');
+                if (mounted) {
+                  setState(() {
+                    _errorText = '客服地址无效';
+                  });
+                }
                 return NavigationDecision.prevent;
               }
               return NavigationDecision.navigate;
@@ -190,35 +153,17 @@ class _V2ETCustomerServiceDialogState extends State<V2ETCustomerServiceDialog> {
           ),
         )
         ..loadRequest(target);
-      _webviewUnavailable = false;
-      _htmlMode = false;
     } catch (e) {
-      _webviewUnavailable = true;
-      _tryNextCandidateOrFail('$e');
-    }
-  }
-
-  void _tryNextCandidateOrFail(String message) {
-    if (!mounted) return;
-    if (_candidateIndex + 1 < _candidateUris.length) {
       setState(() {
-        _candidateIndex++;
-        _loading = true;
-        _errorText = null;
+        _loading = false;
+        _errorText = '客服组件加载失败: $e';
+        _controller = null;
       });
-      _createControllerAndLoad();
-      return;
     }
-    setState(() {
-      _loading = false;
-      _errorText = message;
-      _controller = null;
-      _htmlMode = false;
-    });
   }
 
   Future<void> _openWeb() async {
-    final uri = _candidateUris.isNotEmpty ? _candidateUris.first : null;
+    final uri = _supportUri;
     if (!isSupportedSupportUri(uri)) {
       if (!mounted) return;
       setState(() {
@@ -233,9 +178,9 @@ class _V2ETCustomerServiceDialogState extends State<V2ETCustomerServiceDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final hasConfig = _candidateUris.isNotEmpty;
+    final hasConfig = _supportUri != null;
     final controller = _controller;
-    final hasCrisp = controller != null && !_webviewUnavailable;
+    final hasCrisp = controller != null;
     final errorText = (_errorText ?? '').trim();
     final showInlineError = hasCrisp && errorText.isNotEmpty;
     return Container(
@@ -267,27 +212,30 @@ class _V2ETCustomerServiceDialogState extends State<V2ETCustomerServiceDialog> {
                 _TopAction(
                   icon: Icons.refresh_rounded,
                   onTap: () {
-                    if (hasCrisp) {
-                      final c = _controller;
-                      if (c != null) {
+                        if (hasCrisp) {
+                          final c = _controller;
+                          if (c != null) {
                         setState(() {
                           _loading = true;
                           _errorText = null;
                         });
-                        if (_htmlMode && widget.crispWebsiteId.trim().isNotEmpty) {
-                          c.loadHtmlString(_buildCrispHtml(widget.crispWebsiteId.trim()));
-                        } else {
-                          c.reload();
-                        }
+                        c.reload();
                       }
                       return;
                     }
                     setState(() {
-                      _candidateIndex = 0;
                       _loading = true;
                       _errorText = null;
                     });
-                    _createControllerAndLoad();
+                    final uri = _supportUri;
+                    if (uri == null) {
+                      setState(() {
+                        _loading = false;
+                        _errorText = '暂无客服信息';
+                      });
+                    } else {
+                      _createControllerAndLoad(uri);
+                    }
                   },
                 ),
                 const SizedBox(width: 8),
@@ -312,7 +260,6 @@ class _V2ETCustomerServiceDialogState extends State<V2ETCustomerServiceDialog> {
                             try {
                               return WebViewWidget(controller: c);
                             } catch (e) {
-                              _webviewUnavailable = true;
                               WidgetsBinding.instance.addPostFrameCallback((_) {
                                 if (!mounted) return;
                                 setState(() {
@@ -374,33 +321,6 @@ class _V2ETCustomerServiceDialogState extends State<V2ETCustomerServiceDialog> {
     );
   }
 
-  String _buildCrispHtml(String websiteId) {
-    return '''
-<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <style>
-    html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#fff;}
-    #holder{width:100%;height:100%;}
-    iframe{border:0;width:100%;height:100%;}
-  </style>
-</head>
-<body>
-  <div id="holder">
-    <iframe src="https://go.crisp.chat/chat/embed/?website_id=$websiteId" allow="clipboard-read; clipboard-write"></iframe>
-  </div>
-  <script type="text/javascript">
-    window.\$crisp=[];window.CRISP_WEBSITE_ID="$websiteId";
-    (function(){var d=document,s=d.createElement("script");
-    s.src="https://client.crisp.chat/l.js";s.async=1;
-    d.getElementsByTagName("head")[0].appendChild(s);})();
-  </script>
-</body>
-</html>
-''';
-  }
 }
 
 class _ErrorView extends StatelessWidget {
