@@ -167,7 +167,7 @@ class _V2ETProxyGroupDialogState extends ConsumerState<V2ETProxyGroupDialog> {
                         final active = group.name == current.name;
                         return _GroupTile(
                           title: group.name,
-                          subtitle: group.now ?? '',
+                          subtitle: _safeGroupSubtitle(group.now),
                           active: active,
                           onTap: () => setState(() => selectedGroup = group.name),
                         );
@@ -279,6 +279,13 @@ class _V2ETProxyGroupDialogState extends ConsumerState<V2ETProxyGroupDialog> {
     if (delay < 100) return const Color(0xFF22C55E);
     if (delay < 500) return const Color(0xFFF59E0B);
     return const Color(0xFFEF4444);
+  }
+
+  String _safeGroupSubtitle(String? text) {
+    final raw = (text ?? '').trim();
+    if (raw.isEmpty) return '';
+    if (raw.toLowerCase() == 'null') return '';
+    return raw;
   }
 }
 

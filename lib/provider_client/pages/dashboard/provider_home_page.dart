@@ -938,6 +938,7 @@ class _CurrentNodeCard extends ConsumerWidget {
     final delayText = delay == null
         ? '--'
         : (delay <= 0 ? '测试中' : '${delay}ms');
+    final delayColor = _delayColor(delay);
     final nodeFlag = _flagForNodeName(mainName);
 
     return V2ETCard(
@@ -979,7 +980,7 @@ class _CurrentNodeCard extends ConsumerWidget {
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w900,
-                  color: V2ETTokens.success,
+                  color: delayColor,
                 ),
               ),
               const SizedBox(width: 14),
@@ -1050,5 +1051,13 @@ class _CurrentNodeCard extends ConsumerWidget {
       return '🇦🇺';
     }
     return '🌐';
+  }
+
+  Color _delayColor(int? delay) {
+    if (delay == null || delay == 0) return V2ETTokens.textMuted;
+    if (delay < 0) return const Color(0xFFEF4444);
+    if (delay < 100) return const Color(0xFF22C55E);
+    if (delay < 500) return const Color(0xFFF59E0B);
+    return const Color(0xFFEF4444);
   }
 }
