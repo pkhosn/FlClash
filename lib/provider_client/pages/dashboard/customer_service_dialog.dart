@@ -1,5 +1,3 @@
-import 'dart:io' show Platform;
-
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -98,13 +96,6 @@ class _V2ETCustomerServiceDialogState extends State<V2ETCustomerServiceDialog> {
   String? _errorText;
   bool _webviewUnavailable = false;
 
-  bool get _preferExternalOnly {
-    // Evidence-based mitigation:
-    // the null-check runtime error is reported on Windows webview chain.
-    // Keep popup UI but use external open on Windows to avoid runtime null crash.
-    return Platform.isWindows;
-  }
-
   @override
   void initState() {
     super.initState();
@@ -112,11 +103,6 @@ class _V2ETCustomerServiceDialogState extends State<V2ETCustomerServiceDialog> {
     if (_candidateUris.isEmpty) {
       _loading = false;
       _errorText = '暂无客服信息';
-      return;
-    }
-    if (_preferExternalOnly) {
-      _loading = false;
-      _errorText = '点击下方按钮打开在线客服';
       return;
     }
     _createControllerAndLoad();
@@ -212,14 +198,15 @@ class _V2ETCustomerServiceDialogState extends State<V2ETCustomerServiceDialog> {
       });
       return;
     }
-    await launchUrl(uri!, mode: LaunchMode.externalApplication);
+    if (uri == null) return;
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
   @override
   Widget build(BuildContext context) {
     final hasConfig = _candidateUris.isNotEmpty;
     final controller = _controller;
-    final hasCrisp = !_preferExternalOnly && controller != null && !_webviewUnavailable;
+    final hasCrisp = controller != null && !_webviewUnavailable;
     final errorText = (_errorText ?? '').trim();
     final showInlineError = hasCrisp && errorText.isNotEmpty;
     return Container(
@@ -251,12 +238,6 @@ class _V2ETCustomerServiceDialogState extends State<V2ETCustomerServiceDialog> {
                 _TopAction(
                   icon: Icons.refresh_rounded,
                   onTap: () {
-                    if (_preferExternalOnly) {
-                      setState(() {
-                        _errorText = hasConfig ? '点击下方按钮打开在线客服' : '暂无客服信息';
-                      });
-                      return;
-                    }
                     if (hasCrisp) {
                       final c = _controller;
                       if (c != null) {
