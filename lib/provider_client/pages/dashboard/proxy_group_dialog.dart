@@ -56,7 +56,57 @@ class _V2ETProxyGroupDialogState extends ConsumerState<V2ETProxyGroupDialog> {
   Widget build(BuildContext context) {
     final groups = ref.watch(currentGroupsStateProvider).value;
     if (groups.isEmpty) {
-      return const SizedBox.shrink();
+      return Center(
+        child: Container(
+          width: 520,
+          height: 300,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(15),
+            border: Border.all(color: const Color(0xFF84D8D1), width: 1.3),
+            boxShadow: const [V2ETTokens.softShadow],
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(18, 16, 16, 14),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.settings_input_component_rounded,
+                      color: V2ETTokens.teal,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(widget.title, style: V2ETTokens.h3),
+                    const Spacer(),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(
+                        Icons.close_rounded,
+                        color: V2ETTokens.textMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              const Expanded(
+                child: Center(
+                  child: Text(
+                    '暂无可用节点，请先登录并拉取订阅',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: V2ETTokens.textSecondary,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
     }
     selectedGroup ??= groups.first.name;
     final current = groups.firstWhere(

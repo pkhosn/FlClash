@@ -1,6 +1,8 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter/material.dart';
-import 'package:webview_flutter/webview_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 import '../../theme/provider_tokens.dart';
 
 bool isSupportedSupportUri(Uri? uri) {
@@ -21,20 +23,24 @@ Future<void> showV2ETCustomerServiceDialog(
   const gap = 12.0;
   const margin = 16.0;
   final defaultLeft = media.width - popupWidth - 24;
-  final defaultTop =
-      ((media.height - popupHeight) / 2).clamp(12, media.height - popupHeight - 12).toDouble();
+  final defaultTop = ((media.height - popupHeight) / 2)
+      .clamp(12, media.height - popupHeight - 12)
+      .toDouble();
   double left = defaultLeft;
   double top = defaultTop;
 
   if (anchorRect != null) {
-    left =
-        (anchorRect.right - popupWidth).clamp(margin, media.width - popupWidth - margin).toDouble();
+    left = (anchorRect.right - popupWidth)
+        .clamp(margin, media.width - popupWidth - margin)
+        .toDouble();
     top = (anchorRect.top - popupHeight - gap)
         .clamp(margin, media.height - popupHeight - margin)
         .toDouble();
     final canShowAbove = anchorRect.top - popupHeight - gap >= margin;
     if (!canShowAbove) {
-      top = (anchorRect.bottom + gap).clamp(margin, media.height - popupHeight - margin).toDouble();
+      top = (anchorRect.bottom + gap)
+          .clamp(margin, media.height - popupHeight - margin)
+          .toDouble();
     }
   }
 
@@ -61,10 +67,11 @@ Future<void> showV2ETCustomerServiceDialog(
         ],
       ),
     ),
-    transitionBuilder: (context, animation, secondaryAnimation, child) => FadeTransition(
-      opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
-      child: child,
-    ),
+    transitionBuilder: (context, animation, secondaryAnimation, child) =>
+        FadeTransition(
+          opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
+          child: child,
+        ),
   );
 }
 
@@ -91,11 +98,27 @@ class _V2ETCustomerServiceDialogState extends State<V2ETCustomerServiceDialog> {
   String? _errorText;
   bool _webviewUnavailable = false;
 
+  bool get _preferExternalOnly {
+    // Evidence-based mitigation:
+    // the null-check runtime error is reported on Windows webview chain.
+    // Keep popup UI but use external open on Windows to avoid runtime null crash.
+    return Platform.isWindows;
+  }
+
   @override
   void initState() {
     super.initState();
     _candidateUris = _buildCandidates();
-    if (_candidateUris.isEmpty) return;
+    if (_candidateUris.isEmpty) {
+      _loading = false;
+      _errorText = '暂无客服信息';
+      return;
+    }
+    if (_preferExternalOnly) {
+      _loading = false;
+      _errorText = '点击下方按钮打开在线客服';
+      return;
+    }
     _createControllerAndLoad();
   }
 
@@ -108,9 +131,8 @@ class _V2ETCustomerServiceDialogState extends State<V2ETCustomerServiceDialog> {
       if (u != null && isSupportedSupportUri(u)) out.add(u);
     }
     if (crispId.isNotEmpty) {
-      final embed = Uri.tryParse(
-        'https://go.crisp.chat/chat/embed/?website_id=$crispId',
-      );
+      final embed =
+          Uri.tryParse('https://go.crisp.chat/chat/embed/?website_id=$crispId');
       final chatBox = Uri.tryParse('https://go.crisp.chat/chatbox/$crispId/');
       if (embed != null && isSupportedSupportUri(embed)) out.add(embed);
       if (chatBox != null && isSupportedSupportUri(chatBox)) out.add(chatBox);
@@ -180,181 +202,202 @@ class _V2ETCustomerServiceDialogState extends State<V2ETCustomerServiceDialog> {
     });
   }
 
+  Future<void> _openWeb() async {
+    final uri = _candidateUris.isNotEmpty ? _candidateUris.first : null;
+    if (!isSupportedSupportUri(uri)) {
+      if (!mounted) return;
+      setState(() {
+        _errorText = '暂无客服信息';
+        _loading = false;
+      });
+      return;
+    }
+    await launchUrl(uri!, mode: LaunchMode.externalApplication);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final crispId = widget.crispWebsiteId.trim();
-    final support = widget.supportUrl.trim();
+    final hasConfig = _candidateUris.isNotEmpty;
     final controller = _controller;
-    final hasCrisp = controller != null && !_webviewUnavailable;
+    final hasCrisp = !_preferExternalOnly && controller != null && !_webviewUnavailable;
     final errorText = (_errorText ?? '').trim();
     final showInlineError = hasCrisp && errorText.isNotEmpty;
     return Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: const [V2ETTokens.softShadow],
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Column(
-          children: [
-            Container(
-              height: 52,
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              color: V2ETTokens.primary,
-              child: Row(
-                children: [
-                  const Icon(Icons.support_agent_rounded, color: Colors.white),
-                  const SizedBox(width: 8),
-                  const Text(
-                    '在线客服',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w900,
-                    ),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [V2ETTokens.softShadow],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          Container(
+            height: 52,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            color: V2ETTokens.primary,
+            child: Row(
+              children: [
+                const Icon(Icons.support_agent_rounded, color: Colors.white),
+                const SizedBox(width: 8),
+                const Text(
+                  '在线客服',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
                   ),
-                  const Spacer(),
-                  _TopAction(
-                    icon: Icons.refresh_rounded,
-                    onTap: () {
-                      if (hasCrisp) {
-                        final controller = _controller;
-                        if (controller != null) {
-                          setState(() {
-                            _loading = true;
-                            _errorText = null;
-                          });
-                          controller.reload();
-                        }
-                        return;
-                      }
+                ),
+                const Spacer(),
+                _TopAction(
+                  icon: Icons.refresh_rounded,
+                  onTap: () {
+                    if (_preferExternalOnly) {
                       setState(() {
-                        _candidateIndex = 0;
-                        _loading = true;
-                        _errorText = null;
+                        _errorText = hasConfig ? '点击下方按钮打开在线客服' : '暂无客服信息';
                       });
-                      _createControllerAndLoad();
-                    },
-                  ),
-                  const SizedBox(width: 8),
-                  _TopAction(
-                    icon: Icons.close_rounded,
-                    onTap: () => Navigator.pop(context),
-                  ),
-                ],
-              ),
+                      return;
+                    }
+                    if (hasCrisp) {
+                      final c = _controller;
+                      if (c != null) {
+                        setState(() {
+                          _loading = true;
+                          _errorText = null;
+                        });
+                        c.reload();
+                      }
+                      return;
+                    }
+                    setState(() {
+                      _candidateIndex = 0;
+                      _loading = true;
+                      _errorText = null;
+                    });
+                    _createControllerAndLoad();
+                  },
+                ),
+                const SizedBox(width: 8),
+                _TopAction(
+                  icon: Icons.close_rounded,
+                  onTap: () => Navigator.pop(context),
+                ),
+              ],
             ),
-            Expanded(
-              child: hasCrisp
-                  ? Stack(
-                      children: [
-                        Positioned.fill(
-                          child: Builder(
-                            builder: (_) {
-                              final c = _controller;
-                              if (c == null) {
-                                return const SizedBox.shrink();
-                              }
-                              try {
-                                return WebViewWidget(controller: c);
-                              } catch (e) {
-                                _webviewUnavailable = true;
-                                WidgetsBinding.instance.addPostFrameCallback((_) {
-                                  if (!mounted) return;
-                                  setState(() {
-                                    _loading = false;
-                                    _errorText = '客服组件加载失败: $e';
-                                    _controller = null;
-                                  });
+          ),
+          Expanded(
+            child: hasCrisp
+                ? Stack(
+                    children: [
+                      Positioned.fill(
+                        child: Builder(
+                          builder: (_) {
+                            final c = _controller;
+                            if (c == null) {
+                              return const SizedBox.shrink();
+                            }
+                            try {
+                              return WebViewWidget(controller: c);
+                            } catch (e) {
+                              _webviewUnavailable = true;
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                if (!mounted) return;
+                                setState(() {
+                                  _loading = false;
+                                  _errorText = '客服组件加载失败: $e';
+                                  _controller = null;
                                 });
-                                return const SizedBox.shrink();
-                              }
-                            },
-                          ),
-                        ),
-                        if (_loading)
-                          const Positioned.fill(
-                            child: ColoredBox(
-                              color: Colors.white,
-                              child: Center(child: CircularProgressIndicator()),
-                            ),
-                          ),
-                        if (showInlineError)
-                          Positioned.fill(
-                            child: ColoredBox(
-                              color: Colors.white,
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 20),
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const Text(
-                                      '客服页面加载失败',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w800,
-                                        color: V2ETTokens.textPrimary,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      errorText,
-                                      textAlign: TextAlign.center,
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        color: V2ETTokens.textSecondary,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 14),
-                                    OutlinedButton(
-                                      onPressed: () async {
-                                        final uri = _candidateUris.isNotEmpty
-                                            ? _candidateUris.first
-                                            : Uri.parse(
-                                                'https://go.crisp.chat/chat/embed/?website_id=$crispId',
-                                              );
-                                        if (!isSupportedSupportUri(uri)) {
-                                          if (!mounted) return;
-                                          setState(() {
-                                            _errorText = '暂无客服信息';
-                                            _loading = false;
-                                          });
-                                          return;
-                                        }
-                                        await launchUrl(
-                                          uri,
-                                          mode: LaunchMode.externalApplication,
-                                        );
-                                      },
-                                      child: const Text('网页打开'),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    )
-                  : Center(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: Text(
-                          crispId.isEmpty && support.isEmpty
-                              ? '暂无客服信息'
-                              : (_errorText ?? '客服页面加载失败，请点击刷新重试'),
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: V2ETTokens.textSecondary,
-                          ),
+                              });
+                              return const SizedBox.shrink();
+                            }
+                          },
                         ),
                       ),
+                      if (_loading)
+                        const Positioned.fill(
+                          child: ColoredBox(
+                            color: Colors.white,
+                            child: Center(child: CircularProgressIndicator()),
+                          ),
+                        ),
+                      if (showInlineError)
+                        Positioned.fill(
+                          child: _ErrorView(text: errorText, onOpenWeb: _openWeb),
+                        ),
+                    ],
+                  )
+                : Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            hasConfig
+                                ? (errorText.isNotEmpty
+                                      ? errorText
+                                      : '客服页面加载失败，请点击网页打开')
+                                : '暂无客服信息',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: V2ETTokens.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          if (hasConfig)
+                            OutlinedButton(
+                              onPressed: _openWeb,
+                              child: const Text('网页打开'),
+                            ),
+                        ],
+                      ),
                     ),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ErrorView extends StatelessWidget {
+  const _ErrorView({required this.text, required this.onOpenWeb});
+  final String text;
+  final VoidCallback onOpenWeb;
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: Colors.white,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text(
+              '客服页面加载失败',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+                color: V2ETTokens.textPrimary,
+              ),
             ),
+            const SizedBox(height: 8),
+            Text(
+              text,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 12,
+                color: V2ETTokens.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 14),
+            OutlinedButton(onPressed: onOpenWeb, child: const Text('网页打开')),
           ],
         ),
-      );
+      ),
+    );
   }
 }
 
