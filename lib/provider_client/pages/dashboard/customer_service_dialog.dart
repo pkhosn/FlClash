@@ -135,7 +135,7 @@ class _V2ETCustomerServiceDialogState extends State<V2ETCustomerServiceDialog> {
               if (!mounted) return;
               setState(() {
                 _loading = false;
-                _errorText = '客服页面加载失败: ${error.description}';
+                _errorText = '客服页面加载失败，资源错误详情：${error.description}';
               });
             },
             onNavigationRequest: (request) {
@@ -212,9 +212,9 @@ class _V2ETCustomerServiceDialogState extends State<V2ETCustomerServiceDialog> {
                 _TopAction(
                   icon: Icons.refresh_rounded,
                   onTap: () {
-                        if (hasCrisp) {
-                          final c = _controller;
-                          if (c != null) {
+                    if (hasCrisp) {
+                      final c = _controller;
+                      if (c != null) {
                         setState(() {
                           _loading = true;
                           _errorText = null;
@@ -264,7 +264,7 @@ class _V2ETCustomerServiceDialogState extends State<V2ETCustomerServiceDialog> {
                                 if (!mounted) return;
                                 setState(() {
                                   _loading = false;
-                                  _errorText = '客服组件加载失败: $e';
+                                  _errorText = '客服组件加载失败，错误详情：${e.toString()}';
                                   _controller = null;
                                 });
                               });
@@ -282,7 +282,10 @@ class _V2ETCustomerServiceDialogState extends State<V2ETCustomerServiceDialog> {
                         ),
                       if (showInlineError)
                         Positioned.fill(
-                          child: _ErrorView(text: errorText, onOpenWeb: _openWeb),
+                          child: _ErrorView(
+                            text: errorText,
+                            onOpenWeb: _openWeb,
+                          ),
                         ),
                     ],
                   )
@@ -320,7 +323,6 @@ class _V2ETCustomerServiceDialogState extends State<V2ETCustomerServiceDialog> {
       ),
     );
   }
-
 }
 
 class _ErrorView extends StatelessWidget {
