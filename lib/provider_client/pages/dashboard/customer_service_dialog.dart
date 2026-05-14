@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -93,10 +95,22 @@ class _V2ETCustomerServiceDialogState extends State<V2ETCustomerServiceDialog> {
   Uri? _supportUri;
   bool _loading = true;
   String? _errorText;
+  Timer? _loadingTimer;
 
   @override
   void initState() {
     super.initState();
+    _initLoad();
+  }
+
+  @override
+  void dispose() {
+    _loadingTimer?.cancel();
+    super.dispose();
+  }
+
+  void _initLoad() {
+    _loadingTimer?.cancel();
     _supportUri = _buildSupportUri();
     if (_supportUri == null) {
       _loading = false;
@@ -104,6 +118,15 @@ class _V2ETCustomerServiceDialogState extends State<V2ETCustomerServiceDialog> {
       return;
     }
     _createControllerAndLoad(_supportUri!);
+    _loadingTimer = Timer(const Duration(seconds: 12), () {
+      if (!mounted) return;
+      if (_loading) {
+        setState(() {
+          _loading = false;
+          _errorText = '客服页面加载超时，请尝试在浏览器中打开';
+        });
+      }
+    });
   }
 
   Uri? _buildSupportUri() {
@@ -125,6 +148,7 @@ class _V2ETCustomerServiceDialogState extends State<V2ETCustomerServiceDialog> {
   void _createControllerAndLoad(Uri target) {
     try {
       _controller = WebViewController()
+        ..setBackgroundColor(const Color(0xFFFFFFFF))
         ..setJavaScriptMode(JavaScriptMode.unrestricted)
         ..setNavigationDelegate(
           NavigationDelegate(
@@ -156,7 +180,7 @@ class _V2ETCustomerServiceDialogState extends State<V2ETCustomerServiceDialog> {
     } catch (e) {
       setState(() {
         _loading = false;
-        _errorText = '客服组件加载失败: $e';
+        _errorText = '客服组件加载失败，错误详情：${e.toString()}';
         _controller = null;
       });
     }
@@ -209,6 +233,12 @@ class _V2ETCustomerServiceDialogState extends State<V2ETCustomerServiceDialog> {
                   ),
                 ),
                 const Spacer(),
+                if (_supportUri != null)
+                  _TopAction(
+                    icon: Icons.open_in_browser_rounded,
+                    onTap: _openWeb,
+                  ),
+                const SizedBox(width: 6),
                 _TopAction(
                   icon: Icons.refresh_rounded,
                   onTap: () {
@@ -220,22 +250,25 @@ class _V2ETCustomerServiceDialogState extends State<V2ETCustomerServiceDialog> {
                           _errorText = null;
                         });
                         c.reload();
+                        _loadingTimer?.cancel();
+                        _loadingTimer = Timer(const Duration(seconds: 12), () {
+                          if (!mounted) return;
+                          if (_loading) {
+                            setState(() {
+                              _loading = false;
+                              _errorText = '客服页面加载超时，请尝试在浏览器中打开';
+                            });
+                          }
+                        });
                       }
                       return;
                     }
                     setState(() {
                       _loading = true;
                       _errorText = null;
+                      _controller = null;
                     });
-                    final uri = _supportUri;
-                    if (uri == null) {
-                      setState(() {
-                        _loading = false;
-                        _errorText = '暂无客服信息';
-                      });
-                    } else {
-                      _createControllerAndLoad(uri);
-                    }
+                    _initLoad();
                   },
                 ),
                 const SizedBox(width: 8),
